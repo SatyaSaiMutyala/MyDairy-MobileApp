@@ -1,0 +1,173 @@
+import React, { useState } from 'react';
+import { KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ArrowRight, Lock, Mail } from 'lucide-react-native';
+import { AppText } from '../components/AppText';
+import { Button } from '../components/Button';
+import { Logo } from '../components/Logo';
+import { Notice } from '../components/Notice';
+import { ScreenScroll } from '../components/ScreenScroll';
+import { TealHeader } from '../components/TealHeader';
+import { TextField } from '../components/TextField';
+import { DEMO_PASSWORD } from '../data/mock';
+import { accountFor } from '../data/user';
+import { useSession } from '../state/Session';
+import { colors, fs, fonts, ms, radius, s, vs, space } from '../theme';
+
+const HERO = vs(290);
+
+export function SignInScreen() {
+  const insets = useSafeAreaInsets();
+  const { signIn } = useSession();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [failed, setFailed] = useState(false);
+
+  const submit = () => {
+    const account = accountFor(email);
+    if (account && password === DEMO_PASSWORD) {
+      signIn(account);
+    } else {
+      setFailed(true);
+    }
+  };
+
+  return (
+    <KeyboardAvoidingView
+      style={styles.root}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <ScreenScroll
+        bounces={false}
+        padded={false}
+        bottomGap={0}
+        contentContainerStyle={styles.scroll}
+      >
+        <TealHeader
+          inTabs={false}
+          rounded={false}
+          topGap={28}
+          arcHeight={HERO}
+          style={styles.hero}
+        >
+          <View style={styles.brand}>
+            <Logo size={46} />
+            <View>
+              <AppText style={styles.brandName}>MyDiary</AppText>
+              <AppText variant="metaStrong" color={colors.onTealSoft}>
+                TrustLab Diagnostics
+              </AppText>
+            </View>
+          </View>
+          <AppText variant="display" color={colors.white} style={styles.title}>
+            Sign in to{'\n'}start your shift
+          </AppText>
+          <AppText variant="bodyRegular" color={colors.onTealSoft}>
+            Use your TrustLab work email and password.
+          </AppText>
+        </TealHeader>
+
+        <View style={styles.sheet}>
+          {failed ? (
+            <Notice
+              tone="error"
+              title="Email or password is incorrect"
+              text="Check both and try again. Passwords are case-sensitive."
+              style={styles.alert}
+            />
+          ) : null}
+
+          <TextField
+            label="Work email"
+            icon={Mail}
+            value={email}
+            onChangeText={setEmail}
+            placeholder="name@trustlab.in"
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="email-address"
+            textContentType="username"
+            returnKeyType="next"
+          />
+          <TextField
+            label="Password"
+            icon={Lock}
+            secure
+            value={password}
+            onChangeText={v => {
+              setPassword(v);
+              setFailed(false);
+            }}
+            placeholder="Your password"
+            autoCapitalize="none"
+            textContentType="password"
+            returnKeyType="go"
+            onSubmitEditing={submit}
+            error={failed ? 'Re-enter your password' : undefined}
+          />
+
+          <Button
+            label="Sign in"
+            iconRight={ArrowRight}
+            onPress={submit}
+            disabled={!email || !password}
+            style={styles.cta}
+          />
+
+          <AppText
+            variant="bodyRegular"
+            color={colors.inkMuted}
+            style={styles.help}
+          >
+            Trouble signing in? Contact your IT administrator.
+          </AppText>
+
+          <View style={styles.grow} />
+          <AppText
+            variant="meta"
+            color={colors.inkMuted}
+            style={[styles.legal, { paddingBottom: insets.bottom + vs(14) }]}
+          >
+            TrustLab Diagnostics Pvt. Ltd. · Begumpet, Hyderabad
+          </AppText>
+        </View>
+      </ScreenScroll>
+    </KeyboardAvoidingView>
+  );
+}
+
+const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: colors.teal },
+  scroll: { flexGrow: 1 },
+  hero: {
+    minHeight: HERO,
+    paddingHorizontal: space.gutter,
+    paddingBottom: vs(50),
+  },
+  brand: { flexDirection: 'row', alignItems: 'center', gap: s(12) },
+  brandName: {
+    fontFamily: fonts.semibold,
+    fontSize: fs(20),
+    lineHeight: fs(26),
+    color: colors.white,
+  },
+  title: { marginTop: vs(26), marginBottom: vs(8) },
+  sheet: {
+    flexGrow: 1,
+    marginTop: -vs(30),
+    paddingTop: vs(30),
+    paddingHorizontal: space.gutter,
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: radius.xl + ms(6),
+    borderTopRightRadius: radius.xl + ms(6),
+  },
+  alert: { marginBottom: vs(18) },
+  cta: { marginTop: vs(6) },
+  help: {
+    textAlign: 'center',
+    marginTop: vs(24),
+    paddingHorizontal: s(24),
+  },
+  grow: { flexGrow: 1, minHeight: vs(28) },
+  legal: { textAlign: 'center' },
+});
