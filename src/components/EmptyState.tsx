@@ -6,7 +6,7 @@ import { AppText } from './AppText';
 export function EmptyState({ text }: { text: string }) {
   return (
     <View style={styles.empty}>
-      <AppText variant="body" color={colors.inkMuted}>
+      <AppText variant="body" color={colors.inkMuted} style={styles.text}>
         {text}
       </AppText>
     </View>
@@ -15,4 +15,5 @@ export function EmptyState({ text }: { text: string }) {
 
 const styles = StyleSheet.create({
   empty: { alignItems: 'center', paddingVertical: vs(52) },
+  text: { textAlign: 'center' },
 });

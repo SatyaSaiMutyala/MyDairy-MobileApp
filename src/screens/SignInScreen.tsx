@@ -9,47 +9,52 @@ import { Notice } from '../components/Notice';
 import { ScreenScroll } from '../components/ScreenScroll';
 import { TealHeader } from '../components/TealHeader';
 import { TextField } from '../components/TextField';
-import { DEMO_PASSWORD } from '../data/mock';
-import { accountFor } from '../data/user';
-import { useSession } from '../state/Session';
+import { errorMessage, fieldErrors, useAppDispatch, useAppSelector } from '../store';
+import { useLoginMutation } from '../store/api/authApi';
+import { signedIn } from '../store/slices/sessionSlice';
 import { colors, fs, fonts, ms, radius, s, vs, space } from '../theme';
 
 const HERO = vs(290);
 
 export function SignInScreen() {
   const insets = useSafeAreaInsets();
-  const { signIn } = useSession();
+  const dispatch = useAppDispatch();
+  const endedBecause = useAppSelector(st => st.session.endedBecause);
+  const [login, { isLoading, error, reset }] = useLoginMutation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [failed, setFailed] = useState(false);
 
-  const submit = () => {
-    const account = accountFor(email);
-    if (account && password === DEMO_PASSWORD) {
-      signIn(account);
-    } else {
-      setFailed(true);
+  const submit = async () => {
+    try {
+      const reply = await login({
+        email: email.trim(),
+        password,
+        device_name: `${Platform.OS === 'ios' ? 'iPhone' : 'Android'} app`,
+      }).unwrap();
+      dispatch(signedIn({ token: reply.token, user: reply.user }));
+    } catch {
+      // The message from the API is shown below.
     }
   };
+
+  const fields = fieldErrors(error);
+  const wrongLogin = (error as { status?: number } | undefined)?.status === 401;
 
   return (
     <KeyboardAvoidingView
       style={styles.root}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScreenScroll
         bounces={false}
         padded={false}
         bottomGap={0}
-        contentContainerStyle={styles.scroll}
-      >
+        contentContainerStyle={styles.scroll}>
         <TealHeader
           inTabs={false}
           rounded={false}
           topGap={28}
           arcHeight={HERO}
-          style={styles.hero}
-        >
+          style={styles.hero}>
           <View style={styles.brand}>
             <Logo size={46} />
             <View>
@@ -68,26 +73,38 @@ export function SignInScreen() {
         </TealHeader>
 
         <View style={styles.sheet}>
-          {failed ? (
+          {error ? (
             <Notice
               tone="error"
-              title="Email or password is incorrect"
-              text="Check both and try again. Passwords are case-sensitive."
+              title={wrongLogin ? 'Email or password is incorrect' : errorMessage(error)}
+              text={
+                wrongLogin
+                  ? 'Check both and try again. Passwords are case-sensitive.'
+                  : undefined
+              }
               style={styles.alert}
             />
+          ) : endedBecause ? (
+            <Notice tone="info" title={endedBecause} style={styles.alert} />
           ) : null}
 
           <TextField
             label="Work email"
             icon={Mail}
             value={email}
-            onChangeText={setEmail}
+            onChangeText={v => {
+              setEmail(v);
+              if (error) {
+                reset();
+              }
+            }}
             placeholder="name@trustlab.in"
             autoCapitalize="none"
             autoCorrect={false}
             keyboardType="email-address"
             textContentType="username"
             returnKeyType="next"
+            error={fields.email}
           />
           <TextField
             label="Password"
@@ -96,29 +113,27 @@ export function SignInScreen() {
             value={password}
             onChangeText={v => {
               setPassword(v);
-              setFailed(false);
+              if (error) {
+                reset();
+              }
             }}
             placeholder="Your password"
             autoCapitalize="none"
             textContentType="password"
             returnKeyType="go"
             onSubmitEditing={submit}
-            error={failed ? 'Re-enter your password' : undefined}
+            error={fields.password ?? (wrongLogin ? 'Re-enter your password' : undefined)}
           />
 
           <Button
-            label="Sign in"
+            label={isLoading ? 'Signing in…' : 'Sign in'}
             iconRight={ArrowRight}
             onPress={submit}
-            disabled={!email || !password}
+            disabled={!email || !password || isLoading}
             style={styles.cta}
           />
 
-          <AppText
-            variant="bodyRegular"
-            color={colors.inkMuted}
-            style={styles.help}
-          >
+          <AppText variant="bodyRegular" color={colors.inkMuted} style={styles.help}>
             Trouble signing in? Contact your IT administrator.
           </AppText>
 
@@ -126,8 +141,7 @@ export function SignInScreen() {
           <AppText
             variant="meta"
             color={colors.inkMuted}
-            style={[styles.legal, { paddingBottom: insets.bottom + vs(14) }]}
-          >
+            style={[styles.legal, { paddingBottom: insets.bottom + vs(14) }]}>
             TrustLab Diagnostics Pvt. Ltd. · Begumpet, Hyderabad
           </AppText>
         </View>
@@ -163,11 +177,7 @@ const styles = StyleSheet.create({
   },
   alert: { marginBottom: vs(18) },
   cta: { marginTop: vs(6) },
-  help: {
-    textAlign: 'center',
-    marginTop: vs(24),
-    paddingHorizontal: s(24),
-  },
+  help: { textAlign: 'center', marginTop: vs(24), paddingHorizontal: s(24) },
   grow: { flexGrow: 1, minHeight: vs(28) },
   legal: { textAlign: 'center' },
 });

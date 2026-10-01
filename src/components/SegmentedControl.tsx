@@ -35,7 +35,9 @@ export function SegmentedControl<K extends string>({
         const on = o.key === value;
         const ink = on ? colors.tealDeep : colors.white;
         const Icon = o.icon;
-        const stacked = o.count !== undefined;
+        const counted = o.count !== undefined;
+        // A compact control keeps the count beside the label, on one line.
+        const stacked = counted && !compact;
         return (
           <Pressable
             key={o.key}
@@ -54,7 +56,7 @@ export function SegmentedControl<K extends string>({
               color={ink}>
               {o.label}
             </AppText>
-            {stacked ? (
+            {counted ? (
               <AppText
                 variant="meta"
                 color={
@@ -87,6 +89,6 @@ const styles = StyleSheet.create({
   inline: { flexDirection: 'row', gap: s(7), minHeight: vs(40) },
   stacked: { minHeight: vs(44) },
   trackCompact: { padding: s(3), gap: s(2), borderRadius: radius.sm + s(2) },
-  optionCompact: { minHeight: vs(28) },
+  optionCompact: { minHeight: vs(28), flexDirection: 'row', gap: s(5) },
   on: { backgroundColor: colors.white },
 });

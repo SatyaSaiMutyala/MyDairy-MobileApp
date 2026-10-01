@@ -12,7 +12,6 @@ import { colors, hairline, radius, s, vs } from '../theme';
 import { AppText } from './AppText';
 import { Button } from './Button';
 import { IconButton } from './IconButton';
-import { IconTile } from './IconTile';
 import { PhotoViewer } from './PhotoViewer';
 
 type Props = {
@@ -48,9 +47,7 @@ export function AttachmentList({ files, onAdd, onRemove }: Props) {
         const Icon = isImage(f) ? ImageIcon : FileText;
         return (
           <Pressable key={f.id} onPress={() => view(f)} style={styles.row}>
-            <IconTile size={36} bg={colors.tealTint}>
-              <Icon size={s(17)} color={colors.tealDeep} strokeWidth={1.75} />
-            </IconTile>
+            <Icon size={s(21)} color={colors.tealDeep} strokeWidth={1.6} />
             <View style={styles.text}>
               <AppText variant="body" numberOfLines={1}>
                 {f.name}
@@ -110,7 +107,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: s(10),
-    padding: s(8),
+    paddingVertical: vs(6),
+    paddingHorizontal: s(12),
     marginBottom: vs(8),
     borderRadius: radius.md,
     borderWidth: hairline,

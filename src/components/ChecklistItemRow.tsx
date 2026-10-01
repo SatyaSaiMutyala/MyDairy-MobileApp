@@ -1,14 +1,14 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Ban, Camera, Check, CircleAlert, Clock, TriangleAlert } from 'lucide-react-native';
-import type { Activity } from '../data/labReadiness';
 import {
+  Activity,
   LabItem,
   LabStatus,
   MAX_PHOTOS,
   needsPhoto,
   needsRemark,
-} from '../state/LabStore';
+} from '../lab/model';
 import { colors, s, vs } from '../theme';
 import { AppText } from './AppText';
 import { Choice, ChoiceGroup } from './ChoiceGroup';

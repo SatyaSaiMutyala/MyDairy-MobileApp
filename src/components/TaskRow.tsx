@@ -1,7 +1,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { ChevronRight, Paperclip, Repeat } from 'lucide-react-native';
-import type { Task } from '../data/mock';
+import type { Task } from '../tasks/model';
 import { colors, s, vs } from '../theme';
 import { AppText } from './AppText';
 import { Checkbox } from './Checkbox';

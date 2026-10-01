@@ -1,20 +1,17 @@
 import React from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Camera, ChevronRight, Moon, Sun } from 'lucide-react-native';
-import { dateLabel, units } from '../data/labReadiness';
-import { LabRecord, summarise } from '../state/LabStore';
+import type { HistoryRow } from '../store/api/labApi';
+import { longDate } from '../utils/dates';
 import { colors, s, vs } from '../theme';
 import { AppText } from './AppText';
 import { IconText } from './IconText';
-import { IconTile } from './IconTile';
 import { Pill } from './Pill';
 
-type Props = { record: LabRecord; onPress: () => void };
+type Props = { record: HistoryRow; onPress: () => void };
 
 // One past record in the Lab Readiness history list.
 export function LabRecordRow({ record, onPress }: Props) {
-  const totals = summarise(record.phase, record);
-  const unit = units.find(u => u.id === record.unitId);
   const opening = record.phase === 'opening';
   const Icon = opening ? Sun : Moon;
 
@@ -22,37 +19,31 @@ export function LabRecordRow({ record, onPress }: Props) {
     <Pressable
       onPress={onPress}
       style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
-      <IconTile size={40} bg={opening ? colors.amberTint : colors.blueTint}>
-        <Icon
-          size={s(19)}
-          color={opening ? colors.amberInk : colors.blueInk}
-          strokeWidth={1.75}
-        />
-      </IconTile>
+      <Icon size={s(22)} color={colors.tealDeep} strokeWidth={1.6} />
       <View style={styles.body}>
         <AppText variant="body" numberOfLines={1}>
-          {unit?.name}
+          {record.unitName}
         </AppText>
         <AppText variant="meta" color={colors.inkMuted}>
-          {dateLabel(record.date)} · {opening ? 'Opening' : 'Closing'}
+          {longDate(record.date)} · {opening ? 'Opening' : 'Closing'}
         </AppText>
         <View style={styles.tags}>
           {record.signed ? (
-            <Pill label={`Signed ${record.signed.at}`} tone="signed" />
+            <Pill label={`Signed ${record.signedAt}`} tone="signed" />
           ) : (
             <Pill label="Open" tone="watch" />
           )}
-          {totals.chosen.deviation ? (
-            <Pill label={`${totals.chosen.deviation} deviation`} tone="critical" />
+          {record.dev ? <Pill label={`${record.dev} deviation`} tone="critical" /> : null}
+          {record.reopens ? (
+            <Pill label={`Reopened ×${record.reopens}`} tone="escalated" />
           ) : null}
-          {record.reopenLog.length ? (
-            <Pill label={`Reopened ×${record.reopenLog.length}`} tone="escalated" />
-          ) : null}
-          <IconText icon={Camera} text={String(totals.photos)} />
+          <IconText icon={Camera} text={String(record.photos)} />
         </View>
         <AppText variant="meta" color={colors.inkMuted} style={styles.by}>
-          {totals.chosen.done} done · {totals.chosen.na} N/A ·{' '}
-          {record.signed ? `signed by ${record.signed.by}` : `started by ${record.startedBy}`}
+          {record.done} done · {record.na} N/A ·{' '}
+          {record.signed
+            ? `signed by ${record.signedBy}`
+            : `started by ${record.startedBy ?? 'unknown'}`}
         </AppText>
       </View>
       <ChevronRight size={s(19)} color={colors.inkFaint} strokeWidth={2} />

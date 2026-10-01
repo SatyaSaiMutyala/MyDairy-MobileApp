@@ -1,20 +1,25 @@
 import React from 'react';
-import { Alert, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Pencil, Trash2 } from 'lucide-react-native';
 import { AppText } from '../components/AppText';
 import { AttendeeList } from '../components/AttendeeList';
 import { Button } from '../components/Button';
+import { useConfirm } from '../components/ConfirmDialog';
 import { diaryKinds } from '../components/DiaryItem';
-import { EmptyState } from '../components/EmptyState';
 import { FormCard } from '../components/FormCard';
 import { FormScreen } from '../components/FormScreen';
 import { InfoRow } from '../components/InfoRow';
 import { Notice } from '../components/Notice';
 import { Pill } from '../components/Pill';
-import type { InviteResponse } from '../data/mock';
-import { currentUser, seesAllDepartments } from '../data/user';
-import { useStore } from '../state/Store';
+import { ShimmerRows } from '../components/Shimmer';
+import { InviteResponse, toLine } from '../diary/model';
+import { errorMessage } from '../store';
+import {
+  useDeleteDiaryEntryMutation,
+  useDiaryEntryQuery,
+  useRespondInviteMutation,
+} from '../store/api/diaryApi';
 import { longDate } from '../utils/dates';
 import { colors, s, vs } from '../theme';
 
@@ -27,93 +32,110 @@ const replyText: Record<InviteResponse, string> = {
 
 export function DiaryEntryScreen() {
   const nav = useNavigation<any>();
-  const id: string = useRoute<any>().params?.id ?? '';
-  const store = useStore();
+  const id: number = useRoute<any>().params?.id;
+  const query = useDiaryEntryQuery(id);
+  const [respond, responding] = useRespondInviteMutation();
+  const [destroy, deleting] = useDeleteDiaryEntryMutation();
+  const confirm = useConfirm();
 
-  const invite = id.startsWith('invite:')
-    ? store.invites.find(i => `invite:${i.id}` === id)
-    : undefined;
-  const entry = store.entries.find(e => e.id === id);
-
-  if (invite) {
-    const reply = (r: InviteResponse) => {
-      store.respondInvite(invite.id, r);
-      if (r === 'declined') {
-        nav.goBack();
-      }
-    };
-    return (
-      <FormScreen
-        title="Invitation"
-        footer={
-          <View style={styles.actions}>
-            <Button label="Yes" variant="secondary" style={styles.action} onPress={() => reply('accepted')} />
-            <Button label="Maybe" variant="outline" style={styles.action} onPress={() => reply('tentative')} />
-            <Button label="No" variant="outline" style={styles.action} onPress={() => reply('declined')} />
-          </View>
-        }>
-        <Notice
-          tone={invite.status === 'pending' ? 'info' : 'success'}
-          title={replyText[invite.status]}
-          text={
-            invite.status === 'pending'
-              ? 'It stays dashed on your calendar until you answer.'
-              : 'You can change your answer below.'
-          }
-          style={styles.notice}
-        />
-        <FormCard style={styles.card}>
-          <Pill label="Meeting" tone="info" />
-          <AppText variant="heading" style={styles.title}>
-            {invite.title}
-          </AppText>
-          <InfoRow label="Organised by" value={invite.by} />
-          <InfoRow label="Date" value={longDate(invite.date)} />
-          <InfoRow
-            label="Time"
-            value={invite.end ? `${invite.time} – ${invite.end}` : invite.time}
-          />
-          <InfoRow label="Location" value={invite.place} />
-        </FormCard>
-        {invite.agenda?.length ? (
-          <FormCard title="Agenda" style={styles.card}>
-            {invite.agenda.map((a, i) => (
-              <InfoRow key={a} label={`Item ${i + 1}`} value={a} />
-            ))}
-          </FormCard>
-        ) : null}
-      </FormScreen>
-    );
-  }
-
-  if (!entry) {
+  if (!query.data) {
     return (
       <FormScreen title="Entry">
-        <EmptyState text="This entry is no longer available." />
+        {query.error ? (
+          <Notice
+            tone="error"
+            title={errorMessage(query.error)}
+            style={styles.notice}
+          />
+        ) : (
+          <FormCard style={styles.notice}>
+            <ShimmerRows rows={3} icon={false} lines={2} />
+          </FormCard>
+        )}
       </FormScreen>
     );
   }
 
-  const k = diaryKinds[entry.kind];
-  const remove = () =>
-    Alert.alert('Delete this entry?', 'It cannot be brought back.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: () => {
-          store.deleteEntry(entry.id);
+  const entry = toLine(query.data);
+  const k = diaryKinds[entry.kind] ?? diaryKinds.appointment;
+  const invited = entry.invite !== undefined && entry.inviteId !== undefined;
+  const failure = responding.error ?? deleting.error;
+
+  const reply = (response: Exclude<InviteResponse, 'pending'>) =>
+    respond({ inviteId: entry.inviteId!, response })
+      .unwrap()
+      .then(() => {
+        // A declined entry leaves the calendar.
+        if (response === 'declined') {
           nav.goBack();
-        },
-      },
-    ]);
+        }
+      })
+      .catch(() => {});
+
+  const remove = async () => {
+    const yes = await confirm({
+      title: 'Delete this entry?',
+      text: entry.attendees.length
+        ? 'It cannot be brought back. It also leaves the diaries of the people you tagged.'
+        : 'It cannot be brought back.',
+      confirmLabel: 'Delete',
+      tone: 'danger',
+    });
+    if (yes) {
+      destroy(entry.id)
+        .unwrap()
+        .then(() => nav.goBack())
+        .catch(() => {});
+    }
+  };
 
   return (
     <FormScreen
-      title="Entry"
+      title={invited ? 'Invitation' : 'Entry'}
       footer={
-        entry.source ||
-        (entry.owner !== currentUser.name && !seesAllDepartments()) ? (
+        invited ? (
+          <View style={styles.actions}>
+            <Button
+              label="Yes"
+              variant={entry.invite === 'accepted' ? 'secondary' : 'outline'}
+              style={styles.action}
+              disabled={responding.isLoading}
+              onPress={() => reply('accepted')}
+            />
+            <Button
+              label="Maybe"
+              variant={entry.invite === 'tentative' ? 'secondary' : 'outline'}
+              style={styles.action}
+              disabled={responding.isLoading}
+              onPress={() => reply('tentative')}
+            />
+            <Button
+              label="No"
+              variant="outline"
+              style={styles.action}
+              disabled={responding.isLoading}
+              onPress={() => reply('declined')}
+            />
+          </View>
+        ) : entry.canEdit ? (
+          <View style={styles.actions}>
+            <Button
+              label="Delete"
+              variant="outline"
+              iconLeft={Trash2}
+              iconColor={colors.red}
+              style={styles.action}
+              disabled={deleting.isLoading}
+              onPress={remove}
+            />
+            <Button
+              label="Edit"
+              iconLeft={Pencil}
+              style={styles.action}
+              onPress={() => nav.navigate('DiaryEntryForm', { id: entry.id })}
+            />
+          </View>
+        ) : (
           <Notice
             tone="locked"
             title={
@@ -127,25 +149,29 @@ export function DiaryEntryScreen() {
                 : 'Only the owner or an admin can change it.'
             }
           />
-        ) : (
-          <View style={styles.actions}>
-            <Button
-              label="Delete"
-              variant="outline"
-              iconLeft={Trash2}
-              iconColor={colors.red}
-              style={styles.action}
-              onPress={remove}
-            />
-            <Button
-              label="Edit"
-              iconLeft={Pencil}
-              style={styles.action}
-              onPress={() => nav.navigate('DiaryEntryForm', { id: entry.id })}
-            />
-          </View>
         )
-      }>
+      }
+    >
+      {failure ? (
+        <Notice
+          tone="error"
+          title={errorMessage(failure)}
+          style={styles.notice}
+        />
+      ) : null}
+      {invited ? (
+        <Notice
+          tone={entry.invite === 'pending' ? 'info' : 'success'}
+          title={replyText[entry.invite!]}
+          text={
+            entry.invite === 'pending'
+              ? 'It stays dashed on your calendar until you answer.'
+              : 'You can change your answer below.'
+          }
+          style={styles.notice}
+        />
+      ) : null}
+
       <FormCard style={styles.card}>
         <View style={styles.tags}>
           <Pill label={k.label} tone={k.tone} />
@@ -156,7 +182,7 @@ export function DiaryEntryScreen() {
         </AppText>
         <InfoRow
           label="Organised by"
-          value={entry.owner === currentUser.name ? undefined : entry.owner}
+          value={entry.mine ? undefined : entry.owner}
         />
         <InfoRow label="Date" value={longDate(entry.date)} />
         <InfoRow
@@ -164,10 +190,26 @@ export function DiaryEntryScreen() {
           value={entry.end ? `${entry.time} – ${entry.end}` : entry.time}
         />
         <InfoRow label="Location" value={entry.place} />
-        <InfoRow label="Notes" value={entry.body} />
+        <InfoRow label="Notes" value={entry.body || undefined} />
       </FormCard>
 
-      {entry.attendees?.length ? (
+      {entry.agenda.length ? (
+        <FormCard title="Agenda" style={styles.card}>
+          {entry.agenda.map((a, i) => (
+            <InfoRow
+              key={`${i}-${a.title}`}
+              label={
+                a.duration
+                  ? `Item ${i + 1} · ${a.duration} min`
+                  : `Item ${i + 1}`
+              }
+              value={a.owner ? `${a.title} (${a.owner})` : a.title}
+            />
+          ))}
+        </FormCard>
+      ) : null}
+
+      {entry.attendees.length ? (
         <FormCard title="Attendance" style={styles.card}>
           <AttendeeList people={entry.attendees} />
         </FormCard>

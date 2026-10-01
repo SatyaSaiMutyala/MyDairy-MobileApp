@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import type { Task } from '../data/mock';
+import type { Task } from '../tasks/model';
 import { colors, radius, s, vs } from '../theme';
 import { AppText } from './AppText';
 

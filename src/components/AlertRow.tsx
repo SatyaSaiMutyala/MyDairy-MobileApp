@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Check, Clock } from 'lucide-react-native';
-import type { AlertItem } from '../data/mock';
+import type { AlertItem } from '../alerts/model';
 import { colors, fs, fonts, s, vs } from '../theme';
 import { AppText } from './AppText';
 import { IconTile } from './IconTile';
@@ -65,7 +65,7 @@ const styles = StyleSheet.create({
     color: colors.white,
   },
   body: { flex: 1 },
-  actions: { flexDirection: 'row', gap: s(8), marginTop: vs(10) },
+  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: s(8), marginTop: vs(10) },
   head: { flexDirection: 'row', alignItems: 'center', gap: s(8) },
   title: { marginTop: vs(3), marginBottom: vs(3) },
 });

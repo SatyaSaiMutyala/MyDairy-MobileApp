@@ -1,7 +1,5 @@
 // Small date helpers. Dates are 'YYYY-MM-DD' strings throughout the app.
 
-// The UI round runs on a fixed "today" so the sample data always lines up.
-export const TODAY_ISO = '2026-09-29';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTHS = [
@@ -18,6 +16,9 @@ const pad = (n: number) => String(n).padStart(2, '0');
 
 export const toIso = (d: Date) =>
   `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
+// Today on the phone's own calendar. Read once when the app starts.
+export const TODAY_ISO = toIso(new Date());
 
 export const addDays = (iso: string, days: number) => {
   const d = parse(iso);
@@ -68,3 +69,20 @@ export const monthGrid = (iso: string) => {
 
 export const sameMonth = (a: string, b: string) => a.slice(0, 7) === b.slice(0, 7);
 export const weekDayNames = DAYS;
+
+// The real calendar day on the phone, as opposed to TODAY_ISO which the
+// dummy-data modules still use.
+export const realToday = () => toIso(new Date());
+
+const FULL_DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+// "Thursday, 1 October 2026"
+export const fullDate = (iso: string) => {
+  const d = parse(iso);
+  return `${FULL_DAYS[d.getDay()]}, ${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+};
+
+export const greeting = () => {
+  const h = new Date().getHours();
+  return h < 12 ? 'Good morning,' : h < 17 ? 'Good afternoon,' : 'Good evening,';
+};

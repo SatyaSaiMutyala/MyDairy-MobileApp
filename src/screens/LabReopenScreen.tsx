@@ -8,34 +8,38 @@ import { FormScreen } from '../components/FormScreen';
 import { Notice } from '../components/Notice';
 import { SignerCard } from '../components/SignerCard';
 import { TextArea } from '../components/TextArea';
-import { dateLabel, Phase, units } from '../data/labReadiness';
-import { recordKey, useLab } from '../state/LabStore';
+import { phaseName } from '../lab/model';
+import { errorMessage, fieldErrors } from '../store';
+import { Target, useLabReopenMutation, useLabStateQuery } from '../store/api/labApi';
+import { longDate } from '../utils/dates';
 import { vs } from '../theme';
 
 export function LabReopenScreen() {
   const nav = useNavigation();
-  const { unitId, date, phase } = useRoute<any>().params as {
-    unitId: string;
-    date: string;
-    phase: Phase;
-  };
-  const lab = useLab();
-  const record = lab.records[recordKey(unitId, date, phase)];
-  const unit = units.find(u => u.id === unitId);
+  const target = useRoute<any>().params as Target;
+  const state = useLabStateQuery(target);
+  const [reopen, call] = useLabReopenMutation();
   const [reason, setReason] = useState('');
+  const run = state.data?.run;
+
+  const submit = async () => {
+    try {
+      await reopen({ ...target, reason: reason.trim() }).unwrap();
+      nav.goBack();
+    } catch {
+      // Shown from the API's message below.
+    }
+  };
 
   return (
     <FormScreen
       title="Reopen record"
       footer={
         <Button
-          label="Reopen record"
+          label={call.isLoading ? 'Reopening…' : 'Reopen record'}
           iconLeft={LockOpen}
-          disabled={!reason.trim()}
-          onPress={() => {
-            lab.reopen(unitId, date, phase, reason.trim());
-            nav.goBack();
-          }}
+          disabled={!reason.trim() || call.isLoading}
+          onPress={submit}
         />
       }>
       <Notice
@@ -44,12 +48,18 @@ export function LabReopenScreen() {
         text="State the reason. It is kept with the record, and the sign-off selfie is removed."
         style={styles.notice}
       />
-      <FormCard title={`${unit?.name} · ${phase} · ${dateLabel(date)}`}>
-        {record?.signed ? (
+      {call.error && !fieldErrors(call.error).reason ? (
+        <Notice tone="error" title={errorMessage(call.error)} style={styles.notice} />
+      ) : null}
+      <FormCard
+        title={`${state.data?.unit.name ?? ''} · ${phaseName(target.phase)} · ${longDate(
+          target.date,
+        )}`}>
+        {run?.signed ? (
           <SignerCard
-            name={record.signed.by}
-            role={record.signed.role}
-            note={`Signed at ${record.signed.at}`}
+            name={run.signedBy ?? ''}
+            role={run.signedRole ?? ''}
+            note={`Signed at ${run.signedAt}`}
           />
         ) : null}
         <TextArea
@@ -58,6 +68,7 @@ export function LabReopenScreen() {
           onChangeText={setReason}
           maxLength={2000}
           placeholder="Why does this record need to change?"
+          invalid={!!fieldErrors(call.error).reason}
         />
       </FormCard>
     </FormScreen>

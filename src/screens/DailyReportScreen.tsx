@@ -1,10 +1,17 @@
-import React, { useState } from 'react';
-import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { useRoute } from '@react-navigation/native';
 import { ChevronDown, ChevronUp, LockOpen } from 'lucide-react-native';
 import { AppText } from '../components/AppText';
 import { Button } from '../components/Button';
+import { Card } from '../components/Card';
 import { CardList } from '../components/CardList';
-import { DepartmentPicker, useDepartment } from '../components/DepartmentPicker';
+import { useConfirm } from '../components/ConfirmDialog';
+import {
+  DepartmentPicker,
+  useDepartment,
+} from '../components/DepartmentPicker';
+import { EmptyState } from '../components/EmptyState';
 import { ExpandRow } from '../components/ExpandRow';
 import { Eyebrow } from '../components/Eyebrow';
 import { FormCard } from '../components/FormCard';
@@ -12,68 +19,162 @@ import { FormScreen } from '../components/FormScreen';
 import { KpiRow } from '../components/KpiRow';
 import { Notice } from '../components/Notice';
 import { ProgressHeader } from '../components/ProgressHeader';
+import { Shimmer, ShimmerRows } from '../components/Shimmer';
 import { Stat } from '../components/Stat';
 import { TextArea } from '../components/TextArea';
-import { departmentOf, Kpi } from '../data/departments';
-import { reportHistory, statusWord, today } from '../data/mock';
-import { currentUser } from '../data/user';
-import { clockNow, KpiEntry, useStore } from '../state/Store';
+import { Kpi, KpiEntry, statusWord, toKpi } from '../reports/model';
+import { errorMessage } from '../store';
+import {
+  KpiStatus,
+  ReportState,
+  useDailyReportHistoryInfiniteQuery,
+  useDailyReportQuery,
+  useReopenDailyReportMutation,
+  useSaveDailyReportMutation,
+} from '../store/api/reportsApi';
+import { pagesOf } from '../store/pages';
+import { addDays, longDate } from '../utils/dates';
 import { colors, s, vs } from '../theme';
 
-const tone = { good: colors.greenInk, amber: colors.amberInk, red: colors.redInk };
+const tone = {
+  good: colors.greenInk,
+  amber: colors.amberInk,
+  red: colors.redInk,
+};
 
 export function DailyReportScreen() {
-  const store = useStore();
-  const { dept, setDept, canSwitch } = useDepartment();
-  const department = departmentOf(dept);
-  const kpis = department.kpis;
-  const report = store.reportOf(dept);
+  const { dept, setDept, canSwitch } = useDepartment(useRoute<any>().params?.dept);
+  // A department login never names a department: the server uses its own.
+  const arg = useMemo(
+    () => (canSwitch ? { department: dept } : {}),
+    [canSwitch, dept],
+  );
+  const query = useDailyReportQuery(arg);
+  const picker = (
+    <DepartmentPicker
+      scope="kpis"
+      value={dept}
+      onChange={setDept}
+      style={styles.picker}
+    />
+  );
+
+  if (!query.currentData) {
+    return (
+      <FormScreen title="Daily report">
+        {picker}
+        {query.error ? (
+          <Notice
+            tone="error"
+            title={errorMessage(query.error)}
+            style={styles.gap}
+          />
+        ) : (
+          <>
+            <Shimmer width="55%" height={vs(34)} style={styles.skeleton} />
+            <Shimmer height={vs(10)} round />
+            <Card style={styles.gap}>
+              <ShimmerRows rows={4} icon={false} />
+            </Card>
+          </>
+        )}
+      </FormScreen>
+    );
+  }
+  return (
+    <ReportForm
+      // A fresh form for each department.
+      key={query.currentData.department.key}
+      data={query.currentData}
+      arg={arg}
+      picker={picker}
+    />
+  );
+}
+
+type FormProps = {
+  data: ReportState;
+  arg: { department?: string };
+  picker: React.ReactNode;
+};
+
+function ReportForm({ data, arg, picker }: FormProps) {
+  const confirm = useConfirm();
+  const [save, saving] = useSaveDailyReportMutation();
+  const [reopenCall, reopening] = useReopenDailyReportMutation();
+  const history = pagesOf(
+    useDailyReportHistoryInfiniteQuery(
+      useMemo(
+        () => ({ ...arg, date_to: addDays(data.date, -1) }),
+        [arg, data.date],
+      ),
+    ),
+  );
+
+  const kpis = useMemo(() => data.kpis.map(toKpi), [data.kpis]);
+  const [entries, setEntries] = useState<Record<string, KpiEntry>>(() =>
+    Object.fromEntries(
+      data.kpis
+        .filter(k => k.value || k.status !== 'good')
+        .map(k => [String(k.index), { value: k.value, status: k.status }]),
+    ),
+  );
+  const [remarks, setRemarks] = useState(data.remarks);
   const [showLater, setShowLater] = useState(false);
-  const locked = report.status === 'submitted';
+  const locked = data.locked;
 
   const group = (due: Kpi['due']) => kpis.filter(k => k.due === due);
   const dueToday = group('today');
-  const isFilled = (k: Kpi) => !!report.entries[k.id]?.value.trim();
+  const isFilled = (k: Kpi) => !!entries[k.id]?.value.trim();
   const filledToday = dueToday.filter(isFilled);
   const filled = kpis.filter(isFilled);
-  const count = (st: KpiEntry['status']) =>
-    filled.filter(k => report.entries[k.id].status === st).length;
+  const count = (st: KpiStatus) =>
+    filled.filter(k => entries[k.id].status === st).length;
 
-  const change = (id: string, entry: KpiEntry) =>
-    store.setReport(dept, { entries: { ...report.entries, [id]: entry } });
-  const stamp = { savedAt: clockNow(), savedBy: currentUser.name };
+  const send = (submit: boolean) =>
+    save({
+      ...arg,
+      kpi_values: Object.fromEntries(
+        Object.entries(entries).map(([id, e]) => [
+          id,
+          { val: e.value.trim(), status: e.status },
+        ]),
+      ),
+      remarks,
+      submit,
+    });
 
-  const submit = () => {
+  const submit = async () => {
     const blank = dueToday.filter(k => !isFilled(k));
-    Alert.alert(
-      blank.length
-        ? `${blank.length} KPIs due today are still blank`
-        : `Submit the report for ${today.short}?`,
-      blank.length
-        ? `${blank.map(k => `• ${k.name}`).join('\n')}\n\nOnce submitted the day is locked.`
+    const yes = await confirm({
+      title: blank.length
+        ? `${blank.length} ${blank.length === 1 ? 'KPI' : 'KPIs'} due today ${
+            blank.length === 1 ? 'is' : 'are'
+          } still blank`
+        : `Submit the report for ${longDate(data.date)}?`,
+      text: blank.length
+        ? `${blank
+            .map(k => `• ${k.name}`)
+            .join('\n')}\n\nOnce submitted the day is locked.`
         : 'Once submitted the day is locked and only an admin can reopen it.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: blank.length ? 'Submit anyway' : 'Submit',
-          onPress: () => store.setReport(dept, { status: 'submitted', ...stamp }),
-        },
-      ],
-    );
+      confirmLabel: blank.length ? 'Submit anyway' : 'Submit',
+      tone: blank.length ? 'warn' : 'ask',
+    });
+    if (yes) {
+      send(true);
+    }
   };
 
-  const reopen = () =>
-    Alert.alert(
-      'Reopen this report?',
-      'While reopened, this day is withdrawn from the KPI Tracker until it is submitted again.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Reopen',
-          onPress: () => store.setReport(dept, { status: 'draft', ...stamp }),
-        },
-      ],
-    );
+  const reopen = async () => {
+    const yes = await confirm({
+      title: 'Reopen this report?',
+      text: 'While reopened, this day is withdrawn from the KPI Tracker until it is submitted again.',
+      confirmLabel: 'Reopen',
+    });
+    if (yes) {
+      reopenCall(arg);
+    }
+  };
 
   const rows = (list: Kpi[]) => (
     <CardList inset={14}>
@@ -82,33 +183,42 @@ export function DailyReportScreen() {
           key={k.id}
           kpi={k}
           locked={locked}
-          entry={report.entries[k.id]}
-          onChange={e => change(k.id, e)}
+          entry={entries[k.id]}
+          onChange={e => setEntries(v => ({ ...v, [k.id]: e }))}
         />
       ))}
     </CardList>
   );
 
+  const failure = saving.error ?? reopening.error;
+  const dept = data.department;
+  const submitting = saving.isLoading && !!saving.originalArgs?.submit;
+  const drafting = saving.isLoading && !saving.originalArgs?.submit;
+
   return (
     <FormScreen
       title="Daily report"
+      onEndReached={history.loadMore}
       footer={
         locked ? (
           <>
             <Notice
               tone="locked"
-              title={`Submitted by ${report.savedBy} at ${report.savedAt}`}
+              title={`Submitted by ${data.savedBy ?? 'the department'} at ${
+                data.savedAt ?? ''
+              }`}
               text={
-                canSwitch
+                data.canReopen
                   ? 'This report is locked. You can reopen it.'
                   : 'This report is locked. Contact an admin to unlock it.'
               }
             />
-            {canSwitch ? (
+            {data.canReopen ? (
               <Button
-                label="Admin: reopen"
+                label={reopening.isLoading ? 'Reopening…' : 'Admin: reopen'}
                 variant="outline"
                 iconLeft={LockOpen}
+                disabled={reopening.isLoading}
                 onPress={reopen}
                 style={styles.reopen}
               />
@@ -117,38 +227,65 @@ export function DailyReportScreen() {
         ) : (
           <View style={styles.actions}>
             <Button
-              label="Save draft"
+              label={drafting ? 'Saving…' : 'Save draft'}
               variant="outline"
               style={styles.action}
-              onPress={() => store.setReport(dept, { status: 'draft', ...stamp })}
+              disabled={saving.isLoading}
+              onPress={() => send(false)}
             />
             <Button
-              label="Submit"
+              label={submitting ? 'Submitting…' : 'Submit'}
               style={styles.action}
-              disabled={filled.length === 0}
+              disabled={filled.length === 0 || saving.isLoading}
               onPress={submit}
             />
           </View>
         )
-      }>
-      <DepartmentPicker value={dept} onChange={setDept} style={styles.picker} />
+      }
+    >
+      {picker}
+
+      {failure ? (
+        <Notice tone="error" title={errorMessage(failure)} style={styles.gap} />
+      ) : saving.isSuccess && !locked ? (
+        <Notice
+          tone="success"
+          title={`Draft saved at ${data.savedAt ?? ''}`}
+          style={styles.gap}
+        />
+      ) : null}
 
       <ProgressHeader
-        eyebrow={`${department.name} · HOD submission`}
+        eyebrow={`${dept.name} · HOD submission`}
         done={filledToday.length}
         total={dueToday.length}
         unit="scheduled today"
         due="09:00"
         caption={
-          report.status === 'draft'
-            ? `${today.short} · draft saved at ${report.savedAt}`
-            : `${today.short} · ${kpis.length} KPIs in total`
+          data.status === 'draft'
+            ? `${longDate(data.date)} · draft saved at ${data.savedAt ?? ''}`
+            : `${longDate(data.date)} · ${kpis.length} KPIs in total`
         }
       />
       <View style={styles.stats}>
-        <Stat size="sm" value={count('good')} label="On target" dot={{ color: colors.green }} />
-        <Stat size="sm" value={count('amber')} label="Watch" dot={{ color: colors.amber }} />
-        <Stat size="sm" value={count('red')} label="Action" dot={{ color: colors.red }} />
+        <Stat
+          size="sm"
+          value={count('good')}
+          label="On target"
+          dot={{ color: colors.green }}
+        />
+        <Stat
+          size="sm"
+          value={count('amber')}
+          label="Watch"
+          dot={{ color: colors.amber }}
+        />
+        <Stat
+          size="sm"
+          value={count('red')}
+          label="Action"
+          dot={{ color: colors.red }}
+        />
         <Stat
           size="sm"
           value={dueToday.length - filledToday.length}
@@ -157,8 +294,16 @@ export function DailyReportScreen() {
         />
       </View>
 
-      <Eyebrow label={`Due today · ${dueToday.length}`} />
-      {rows(dueToday)}
+      {kpis.length === 0 ? (
+        <EmptyState text="No KPIs are set up for this department." />
+      ) : null}
+
+      {dueToday.length ? (
+        <>
+          <Eyebrow label={`Due today · ${dueToday.length}`} />
+          {rows(dueToday)}
+        </>
+      ) : null}
 
       {group('event').length ? (
         <>
@@ -184,7 +329,11 @@ export function DailyReportScreen() {
             {showLater ? (
               <ChevronUp size={s(20)} color={colors.inkSoft} strokeWidth={2} />
             ) : (
-              <ChevronDown size={s(20)} color={colors.inkSoft} strokeWidth={2} />
+              <ChevronDown
+                size={s(20)}
+                color={colors.inkSoft}
+                strokeWidth={2}
+              />
             )}
           </Pressable>
           {showLater ? rows(group('later')) : null}
@@ -195,55 +344,83 @@ export function DailyReportScreen() {
         <TextArea
           label="Remarks & observations"
           editable={!locked}
-          value={report.remarks}
-          onChangeText={remarks => store.setReport(dept, { remarks })}
+          value={remarks}
+          onChangeText={setRemarks}
           maxLength={5000}
           placeholder="Anything the CMD should know about today"
         />
       </FormCard>
 
       <Eyebrow label="Previous reports" />
-      <CardList inset={14}>
-        {reportHistory.map(h => {
-          const shown = dueToday.slice(0, h.statuses.length);
-          const worst = h.statuses.includes('red')
-            ? colors.red
-            : h.statuses.includes('amber')
-            ? colors.amber
-            : colors.green;
-          const by = h.by === 'lead' ? department.lead : h.by;
-          return (
-            <ExpandRow
-              key={h.date}
-              dot={worst}
-              title={h.date}
-              detail={`${by} · ${h.locked ? 'submitted' : 'draft'}`}
-              value={`${shown.length}/${dueToday.length}`}>
-              {shown.map((k, i) => (
-                <View key={k.id} style={styles.past}>
-                  <AppText variant="meta" color={colors.inkSoft} style={styles.pastName}>
-                    {k.name}
+      {history.firstLoad ? (
+        <Card>
+          <ShimmerRows rows={3} icon={false} lines={2} />
+        </Card>
+      ) : history.failed ? (
+        <Notice tone="error" title={errorMessage(history.error)} />
+      ) : history.rows.length ? (
+        <CardList inset={14}>
+          {history.rows.map(h => {
+            const worst = h.values.some(v => v.status === 'red')
+              ? colors.red
+              : h.values.some(v => v.status === 'amber')
+              ? colors.amber
+              : colors.green;
+            return (
+              <ExpandRow
+                key={h.id}
+                dot={worst}
+                title={longDate(h.date)}
+                detail={`${h.by ?? 'Unknown'} · ${
+                  h.locked ? `submitted ${h.at ?? ''}` : 'draft'
+                }`}
+                value={`${h.filled}/${h.total}`}
+              >
+                {h.values.map(v => (
+                  <View key={v.name} style={styles.past}>
+                    <AppText
+                      variant="meta"
+                      color={colors.inkSoft}
+                      style={styles.pastName}
+                    >
+                      {v.name}
+                    </AppText>
+                    <AppText variant="metaStrong" color={tone[v.status]}>
+                      {v.val} · {statusWord[v.status]}
+                    </AppText>
+                  </View>
+                ))}
+                {h.remarks ? (
+                  <AppText
+                    variant="meta"
+                    color={colors.inkMuted}
+                    style={styles.pastNote}
+                  >
+                    {h.remarks}
                   </AppText>
-                  <AppText variant="metaStrong" color={tone[h.statuses[i]]}>
-                    {statusWord[h.statuses[i]]}
-                  </AppText>
-                </View>
-              ))}
-              {h.remarks ? (
-                <AppText variant="meta" color={colors.inkMuted} style={styles.pastNote}>
-                  {h.remarks}
-                </AppText>
-              ) : null}
-            </ExpandRow>
-          );
-        })}
-      </CardList>
+                ) : null}
+              </ExpandRow>
+            );
+          })}
+        </CardList>
+      ) : (
+        <AppText variant="meta" color={colors.inkFaint}>
+          No earlier reports for this department.
+        </AppText>
+      )}
+      {history.loadingMore ? (
+        <Card style={styles.gap}>
+          <ShimmerRows rows={2} icon={false} lines={2} />
+        </Card>
+      ) : null}
     </FormScreen>
   );
 }
 
 const styles = StyleSheet.create({
   picker: { marginTop: vs(6), marginBottom: 0 },
+  gap: { marginTop: vs(12) },
+  skeleton: { marginTop: vs(18), marginBottom: vs(12) },
   stats: { flexDirection: 'row', marginTop: vs(12) },
   hint: { marginTop: -vs(4), marginBottom: vs(10) },
   fold: {

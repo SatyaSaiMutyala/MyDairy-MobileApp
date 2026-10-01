@@ -1,83 +1,121 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
+import { StyleSheet } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { ArrowUpRight } from 'lucide-react-native';
 import { Button } from '../components/Button';
 import { DateField } from '../components/DateField';
-import { Dropdown } from '../components/Dropdown';
+import { Dropdown, DropdownOption } from '../components/Dropdown';
 import { FormCard } from '../components/FormCard';
 import { FormScreen } from '../components/FormScreen';
 import { Notice } from '../components/Notice';
+import { PersonPicker } from '../components/PersonPicker';
+import { ShimmerRows } from '../components/Shimmer';
 import { TextArea } from '../components/TextArea';
-import { colleagues, escalationReasons } from '../data/mock';
-import { shortDate } from '../utils/dates';
-import { clockNow, useStore } from '../state/Store';
-import { StyleSheet } from 'react-native';
+import { errorMessage } from '../store';
+import {
+  useEscalateTaskMutation,
+  useTaskMetaQuery,
+  useTaskQuery,
+} from '../store/api/tasksApi';
+import { toTask } from '../tasks/model';
 import { vs } from '../theme';
 
 export function EscalateTaskScreen() {
   const nav = useNavigation<any>();
-  const route = useRoute<any>();
-  const { tasks, escalateTask } = useStore();
-  const task = tasks.find(t => t.id === route.params?.id);
+  const id: number = useRoute<any>().params?.id;
+  const query = useTaskQuery(id);
+  const meta = useTaskMetaQuery();
+  const [escalate, call] = useEscalateTaskMutation();
 
-  const [to, setTo] = useState('');
+  const [to, setTo] = useState<DropdownOption>();
   const [reason, setReason] = useState('');
   const [note, setNote] = useState('');
   const [by, setBy] = useState('');
 
-  const submit = () => {
-    if (task) {
-      escalateTask(task.id, colleagues.find(c => c.id === to)!.label, {
-        reason: escalationReasons.find(r => r.id === reason)!.label,
+  const reasons = useMemo(
+    () => (meta.data?.reasons ?? []).map(r => ({ id: r.key, label: r.label })),
+    [meta.data],
+  );
+
+  const submit = async () => {
+    try {
+      await escalate({
+        id,
+        to_user_id: Number(to?.id),
+        reason,
         note: note.trim() || undefined,
-        expectedBy: by ? shortDate(by) : undefined,
-        on: `Today, ${clockNow()}`,
-      });
+        expected_resolution_by: by || undefined,
+      }).unwrap();
+      nav.navigate('Tabs', { screen: 'Tasks' });
+    } catch {
+      // The API's message is shown at the top.
     }
-    nav.navigate('Tabs', { screen: 'Tasks' });
   };
+
+  const task = query.data ? toTask(query.data) : undefined;
+  const loading = !meta.data;
+  const failure = call.error ?? meta.error ?? query.error;
 
   return (
     <FormScreen
       title="Escalate task"
       footer={
         <Button
-          label="Escalate"
+          label={call.isLoading ? 'Escalating…' : 'Escalate'}
           iconLeft={ArrowUpRight}
-          disabled={!to || !reason}
+          disabled={!to || !reason || call.isLoading}
           onPress={submit}
         />
-      }>
+      }
+    >
+      {failure ? (
+        <Notice
+          tone="error"
+          title={errorMessage(failure)}
+          style={styles.notice}
+        />
+      ) : null}
       {task ? (
-        <Notice tone="info" title={task.title} text={`${task.area} · due ${task.due}`} style={styles.notice} />
+        <Notice
+          tone="info"
+          title={task.title}
+          text={`${task.area} · due ${task.due}`}
+          style={styles.notice}
+        />
       ) : null}
       <FormCard>
-        <Dropdown
-          label="Escalate to *"
-          placeholder="Select user"
-          options={colleagues}
-          value={to}
-          onChange={setTo}
-        />
-        <Dropdown
-          label="Escalation reason *"
-          placeholder="Select reason"
-          options={escalationReasons}
-          value={reason}
-          onChange={setReason}
-        />
-        <TextArea
-          label="Notes to escalatee"
-          value={note}
-          onChangeText={setNote}
-          placeholder="What do you need from them?"
-        />
-        <DateField
-          clearable
-          label="Expected resolution by"
-          value={by}
-          onChange={setBy}
-        />
+        {loading && !failure ? (
+          <ShimmerRows rows={3} icon={false} />
+        ) : (
+          <>
+            <PersonPicker
+              excludeMe
+              label="Escalate to *"
+              placeholder="Select user"
+              value={to}
+              onChange={setTo}
+            />
+            <Dropdown
+              label="Escalation reason *"
+              placeholder="Select reason"
+              options={reasons}
+              value={reason}
+              onChange={setReason}
+            />
+            <TextArea
+              label="Notes to escalatee"
+              value={note}
+              onChangeText={setNote}
+              placeholder="What do you need from them?"
+            />
+            <DateField
+              clearable
+              label="Expected resolution by"
+              value={by}
+              onChange={setBy}
+            />
+          </>
+        )}
       </FormCard>
     </FormScreen>
   );

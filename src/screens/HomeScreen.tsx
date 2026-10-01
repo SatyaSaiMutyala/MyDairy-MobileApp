@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import {
   ArrowRight,
   Bell,
@@ -25,55 +25,101 @@ import { MeetingCard } from '../components/MeetingCard';
 import { ScreenScroll } from '../components/ScreenScroll';
 import { ShiftCard } from '../components/ShiftCard';
 import { Stat } from '../components/Stat';
+import { StatusBarShade } from '../components/StatusBarShade';
+import { ShimmerRows } from '../components/Shimmer';
 import { TaskRow } from '../components/TaskRow';
 import { TealHeader } from '../components/TealHeader';
-import { today } from '../data/mock';
-import { currentUser, seesAllDepartments } from '../data/user';
-import { dueBy, HOME_UNIT, Phase, TODAY } from '../data/labReadiness';
-import { recordKey, summarise, useLab } from '../state/LabStore';
-import { useStore } from '../state/Store';
-import { useNextMeeting, useVisibleTasks } from '../state/views';
-import { colors, fonts, fs, hairline, ms, radius, s, space, vs } from '../theme';
+import { currentUser } from '../data/user';
+import { dueBy, Phase } from '../lab/model';
+import { useLabUnit } from '../lab/useLabUnit';
+import { errorMessage } from '../store';
+import { useLabStateQuery } from '../store/api/labApi';
+import { todayIso } from '../store/slices/labSlice';
+import { useNextMeeting } from '../diary/useDiary';
+import { useToggleTaskMutation } from '../store/api/tasksApi';
+import { useTaskList } from '../tasks/useTaskList';
+import { useAlertList } from '../alerts/useAlertList';
+import { useUnreadCountQuery } from '../store/api/notificationsApi';
+import { fullDate, greeting } from '../utils/dates';
+import {
+  colors,
+  fonts,
+  fs,
+  hairline,
+  ms,
+  radius,
+  s,
+  space,
+  vs,
+} from '../theme';
+
+// Today's open alerts.
+const HOME_ALERTS = { status: 'open' } as const;
 
 export function HomeScreen() {
   const nav = useNavigation<any>();
-  const store = useStore();
-  const lab = useLab();
+  const { unit } = useLabUnit();
+  const todayDate = todayIso();
+  const openingState = useLabStateQuery(
+    { unit: unit?.key ?? '', date: todayDate, phase: 'opening' },
+    { skip: !unit },
+  );
+  const closingState = useLabStateQuery(
+    { unit: unit?.key ?? '', date: todayDate, phase: 'closing' },
+    { skip: !unit },
+  );
 
   const shift = (phase: Phase) => {
-    const record = lab.records[recordKey(HOME_UNIT, TODAY, phase)];
-    const totals = summarise(phase, record);
-    if (record?.signed) {
+    const data = phase === 'opening' ? openingState.data : closingState.data;
+    if (data?.run?.signed) {
       return {
         signed: true,
         state: 'Signed',
-        detail: `${record.signed.at} · ${record.signed.by}`,
+        detail: `${data.run.signedAt?.split(', ')[1] ?? data.run.signedAt} · ${
+          data.run.signedBy
+        }`,
       };
     }
-    return record
-      ? {
-          signed: false,
-          state: 'In progress',
-          detail: `${totals.complete} of ${totals.total} complete`,
-        }
-      : { signed: false, state: 'Not started', detail: `Due by ${dueBy[phase]}` };
+    if (data?.run) {
+      const done = data.summary.total - data.summary.pending;
+      return {
+        signed: false,
+        state: 'In progress',
+        detail: `${done} of ${data.summary.total} complete`,
+      };
+    }
+    return {
+      signed: false,
+      state: 'Not started',
+      detail: `Due by ${dueBy[phase]}`,
+    };
   };
   const opening = shift('opening');
   const closing = shift('closing');
 
-  const meeting = useNextMeeting();
-  const dueToday = useVisibleTasks().filter(
-    t => t.bucket === 'today' && !t.from && !t.escalatedTo,
+  const { meeting } = useNextMeeting();
+  const today = useTaskList({ box: 'mine', status: 'today' });
+  const [toggleTask] = useToggleTaskMutation();
+  const dueToday = today.rows;
+  const overdue = today.counts?.overdue ?? 0;
+  const remaining = today.counts?.today ?? 0;
+  // The bell: asked again every minute, and whenever Home comes back in view.
+  const notices = useUnreadCountQuery(undefined, { pollingInterval: 60000 });
+  const unread = notices.data ?? 0;
+  const refetchNotices = notices.refetch;
+  useFocusEffect(
+    useCallback(() => {
+      refetchNotices();
+    }, [refetchNotices]),
   );
-  const overdue = dueToday.filter(t => t.overdue && !t.done).length;
-  const remaining = dueToday.filter(t => !t.done).length;
-  const alerts = store.alerts.filter(
-    a => !a.resolved && (seesAllDepartments() || a.dept === currentUser.deptKey),
-  );
-  const redAlerts = alerts.filter(a => a.level === 'red').length;
+  const openAlerts = useAlertList(HOME_ALERTS);
+  const alerts = openAlerts.rows;
+  const alertCount = openAlerts.counts?.open ?? 0;
+  const redAlerts = openAlerts.counts?.red ?? 0;
 
   return (
     <View style={styles.root}>
+      <StatusBarShade />
       <ScreenScroll padded={false}>
         <TealHeader arcHeight={vs(330)} topGap={10} style={styles.header}>
           <View style={styles.topRow}>
@@ -89,18 +135,24 @@ export function HomeScreen() {
               </AppText>
             </View>
             <Pressable
-              accessibilityLabel={`Alerts, ${alerts.length} open`}
-              onPress={() => nav.navigate('Alerts')}>
+              accessibilityLabel={`Notifications, ${unread} unread`}
+              onPress={() => nav.navigate('Notifications')}
+            >
               <IconTile size={44} bg={colors.tealShade}>
                 <Bell size={s(21)} color={colors.white} strokeWidth={1.75} />
               </IconTile>
-              <View style={styles.bellCount}>
-                <AppText style={styles.bellCountText}>{alerts.length}</AppText>
-              </View>
+              {unread ? (
+                <View style={styles.bellCount}>
+                  <AppText style={styles.bellCountText}>
+                    {unread > 99 ? '99+' : unread}
+                  </AppText>
+                </View>
+              ) : null}
             </Pressable>
             <Pressable
               onPress={() => nav.navigate('More')}
-              accessibilityLabel="Your profile">
+              accessibilityLabel="Your profile"
+            >
               <Avatar
                 label={currentUser.initials}
                 size={44}
@@ -109,15 +161,19 @@ export function HomeScreen() {
             </Pressable>
           </View>
 
-          <AppText variant="body" color={colors.onTealSoft} style={styles.greeting}>
-            {today.greeting}
+          <AppText
+            variant="body"
+            color={colors.onTealSoft}
+            style={styles.greeting}
+          >
+            {greeting()}
           </AppText>
           <AppText variant="title" color={colors.white} style={styles.name}>
             {currentUser.name}
           </AppText>
           <IconText
             icon={Calendar}
-            text={today.long}
+            text={fullDate(todayDate)}
             variant="label"
             iconSize={16}
             gap={8}
@@ -126,7 +182,11 @@ export function HomeScreen() {
             style={styles.date}
           />
 
-          <AppText variant="eyebrow" color={colors.onTealSoft} style={styles.headEyebrow}>
+          <AppText
+            variant="eyebrow"
+            color={colors.onTealSoft}
+            style={styles.headEyebrow}
+          >
             LAB CHECKLISTS TODAY
           </AppText>
           <View style={styles.shiftRow}>
@@ -161,11 +221,17 @@ export function HomeScreen() {
             spread
             iconRight={ArrowRight}
             onPress={() =>
-              nav.navigate('Lab', { shift: opening.signed ? 'closing' : 'opening' })
+              nav.navigate('Lab', {
+                shift: opening.signed ? 'closing' : 'opening',
+              })
             }
             leading={
-              <IconTile size={36} bg={colors.yellowInk}>
-                <ClipboardCheck size={s(19)} color={colors.yellow} strokeWidth={1.9} />
+              <IconTile size={32} bg={colors.yellowInk}>
+                <ClipboardCheck
+                  size={s(17)}
+                  color={colors.yellow}
+                  strokeWidth={1.9}
+                />
               </IconTile>
             }
           />
@@ -203,7 +269,7 @@ export function HomeScreen() {
             />
             <View style={styles.glanceRule} />
             <Stat
-              value={alerts.length}
+              value={alertCount}
               label={`Alerts · ${redAlerts} red`}
               style={styles.stat}
             />
@@ -211,29 +277,45 @@ export function HomeScreen() {
 
           <MeetingCard
             meeting={meeting}
-            onPress={() => meeting && nav.navigate('DiaryEntry', { id: meeting.id })}
+            onPress={() =>
+              meeting && nav.navigate('DiaryEntry', { id: meeting.id })
+            }
           />
 
           <Eyebrow
             label="Due today"
-            action={`See all ${dueToday.length}`}
+            action={`See all ${remaining}`}
             onAction={() => nav.navigate('Tasks')}
           />
-          <CardList inset={54}>
-            {dueToday.slice(0, 3).map(t => (
-              <TaskRow
-                key={t.id}
-                task={t}
-                checked={!!t.done}
-                onToggle={() => store.toggleTask(t.id)}
-                onOpen={() => nav.navigate('TaskDetail', { id: t.id })}
-              />
-            ))}
-          </CardList>
+          {today.firstLoad ? (
+            <Card>
+              <ShimmerRows rows={3} />
+            </Card>
+          ) : dueToday.length ? (
+            <CardList inset={54}>
+              {dueToday.slice(0, 3).map(t => (
+                <TaskRow
+                  key={t.id}
+                  task={t}
+                  checked={t.done}
+                  onToggle={() => toggleTask(t.id)}
+                  onOpen={() => nav.navigate('TaskDetail', { id: t.id })}
+                />
+              ))}
+            </CardList>
+          ) : (
+            <Card style={styles.none}>
+              <AppText variant="body" color={colors.inkMuted}>
+                {today.failed
+                  ? errorMessage(today.error)
+                  : 'Nothing due today.'}
+              </AppText>
+            </Card>
+          )}
 
           <Eyebrow
             label="Open alerts"
-            action={`See all ${alerts.length}`}
+            action={`See all ${alertCount}`}
             onAction={() => nav.navigate('Alerts')}
           />
           <CardList inset={68}>
@@ -248,6 +330,7 @@ export function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
+  none: { paddingHorizontal: s(16), paddingVertical: vs(16) },
   root: { flex: 1, backgroundColor: colors.ground },
   header: { paddingBottom: vs(18) },
   topRow: { flexDirection: 'row', alignItems: 'center', gap: s(10) },

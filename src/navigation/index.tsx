@@ -1,8 +1,9 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { AlertsScreen } from '../screens/AlertsScreen';
+import { NotificationsScreen } from '../screens/NotificationsScreen';
 import { ChangePasswordScreen } from '../screens/ChangePasswordScreen';
 import { DailyReportScreen } from '../screens/DailyReportScreen';
 import { DiaryEntryFormScreen } from '../screens/DiaryEntryFormScreen';
@@ -28,7 +29,11 @@ import { TasksScreen } from '../screens/TasksScreen';
 import { VisitDetailScreen } from '../screens/VisitDetailScreen';
 import { VisitFormScreen } from '../screens/VisitFormScreen';
 import { VisitsScreen } from '../screens/VisitsScreen';
-import { useSession } from '../state/Session';
+import { useAppDispatch, useAppSelector } from '../store';
+import { loadSession } from '../store/persist';
+import { restored } from '../store/slices/sessionSlice';
+import { navigationRef } from '../push';
+import { usePush } from '../push/usePush';
 import { colors } from '../theme';
 import { TabBar } from './TabBar';
 
@@ -51,6 +56,12 @@ const renderTabBar = (props: React.ComponentProps<typeof TabBar>) => (
   <TabBar {...props} />
 );
 
+// Mounted only while someone is signed in.
+function PushListener() {
+  usePush();
+  return null;
+}
+
 function Tabs() {
   return (
     <Tab.Navigator tabBar={renderTabBar} screenOptions={{ headerShown: false }}>
@@ -64,21 +75,29 @@ function Tabs() {
 }
 
 export function RootNavigator() {
-  const { signedIn } = useSession();
+  const dispatch = useAppDispatch();
+  const { token, loading } = useAppSelector(st => st.session);
   const [booting, setBooting] = useState(true);
   const finishBoot = useCallback(() => setBooting(false), []);
 
-  if (booting) {
+  // Read the saved token while the splash screen plays.
+  useEffect(() => {
+    loadSession().then(saved => dispatch(restored(saved)));
+  }, [dispatch]);
+
+  if (booting || loading) {
     return <SplashScreen onDone={finishBoot} />;
   }
-  if (!signedIn) {
+  if (!token) {
     return <SignInScreen />;
   }
   return (
-    <NavigationContainer theme={navTheme}>
+    <NavigationContainer theme={navTheme} ref={navigationRef}>
+      <PushListener />
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         <Stack.Screen name="Tabs" component={Tabs} />
         <Stack.Screen name="Alerts" component={AlertsScreen} />
+        <Stack.Screen name="Notifications" component={NotificationsScreen} />
         <Stack.Screen name="RaiseAlert" component={RaiseAlertScreen} />
         <Stack.Screen name="ResolveAlert" component={ResolveAlertScreen} />
         <Stack.Screen name="PreOps" component={PreOpsScreen} />

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
-import type { DiaryLine } from '../state/views';
-import { shortDate, TODAY_ISO } from '../utils/dates';
+import type { DiaryLine } from '../diary/model';
+import { realToday, shortDate } from '../utils/dates';
 import { colors, fonts, fs, radius, s, vs } from '../theme';
 import { AppText } from './AppText';
 import { Avatar } from './Avatar';
@@ -39,7 +39,7 @@ export function MeetingCard({ meeting, onPress }: Props) {
     );
   }
 
-  const names = [meeting.owner, ...(meeting.attendees?.map(a => a.name) ?? [])];
+  const names = [meeting.owner, ...(meeting.attendees.map(a => a.name))];
   const shown = names.slice(0, 2);
   const extra = names.length - shown.length;
   const others = names.length - 1;
@@ -58,7 +58,7 @@ export function MeetingCard({ meeting, onPress }: Props) {
             <Dot color={colors.blue} size={7} />
             <AppText variant="metaStrong" color={colors.blueInk}>
               Next meeting ·{' '}
-              {meeting.date === TODAY_ISO ? 'today' : shortDate(meeting.date)}
+              {meeting.date === realToday() ? 'today' : shortDate(meeting.date)}
             </AppText>
           </View>
           <AppText variant="heading" style={styles.title}>

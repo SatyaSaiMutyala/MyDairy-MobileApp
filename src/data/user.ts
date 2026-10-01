@@ -63,7 +63,29 @@ export const setCurrentUser = (profile: Profile) => {
   Object.assign(currentUser, profile);
 };
 
-export const accountFor = (email: string) =>
-  demoAccounts.find(a => a.email === email.trim().toLowerCase());
 
 export const seesAllDepartments = () => currentUser.sysRole !== 'user';
+
+// Turns the API's user into the profile shape the screens still read.
+export const profileFrom = (u: {
+  name: string;
+  initials: string;
+  email: string;
+  designation: string | null;
+  dept: string;
+  dept_name: string;
+  role: 'user' | 'admin' | 'super_admin';
+  role_label: string;
+  location: string | null;
+}): Profile => ({
+  name: u.name,
+  initials: u.initials,
+  email: u.email,
+  role: u.designation ?? u.role_label,
+  sysRole: u.role === 'super_admin' ? 'ceo' : u.role,
+  roleLabel: u.role_label,
+  deptKey: u.dept,
+  deptName: u.dept_name,
+  department: u.dept_name,
+  unit: u.location && u.location !== 'ALL' ? `TrustLab · ${u.location}` : 'TrustLab · All locations',
+});

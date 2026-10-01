@@ -1,7 +1,6 @@
 import React from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
-import type { Kpi } from '../data/mock';
-import type { KpiEntry } from '../state/Store';
+import type { Kpi, KpiEntry } from '../reports/model';
 import { colors, s, vs } from '../theme';
 import { AppText } from './AppText';
 import { ChoiceGroup } from './ChoiceGroup';
@@ -59,6 +58,7 @@ export function KpiRow({ kpi, entry, locked, onChange }: Props) {
           style={styles.last}>
           <AppText variant="metaStrong" color={colors.teal}>
             Use last value · {kpi.last}
+            {kpi.lastOn ? ` (${kpi.lastOn})` : ''}
           </AppText>
         </Pressable>
       ) : null}

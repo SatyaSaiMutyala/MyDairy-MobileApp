@@ -1,36 +1,42 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { ViewStyle } from 'react-native';
-import { departments } from '../data/departments';
 import { currentUser, seesAllDepartments } from '../data/user';
-import { Dropdown, DropdownOption } from './Dropdown';
+import { useDepartmentsQuery } from '../store/api/alertsApi';
+import { Dropdown } from './Dropdown';
 
 // A normal user is tied to their own department. Admin and CMD can switch.
-export function useDepartment(allowAll = false) {
+// `first` opens on a given department (a notification names one); it only
+// applies to people who can switch.
+export function useDepartment(first?: string) {
   const canSwitch = seesAllDepartments();
-  const [dept, setDept] = useState(
-    canSwitch && allowAll ? 'all' : currentUser.deptKey,
-  );
+  const [dept, setDept] = useState((canSwitch && first) || currentUser.deptKey);
   return { dept, setDept, canSwitch };
 }
 
 type Props = {
   value: string;
   onChange: (id: string) => void;
-  // Adds an "All departments" choice at the top.
-  allowAll?: boolean;
+  // Only list departments that have morning checks, or KPIs, set up.
+  scope?: 'preflight' | 'kpis';
   style?: ViewStyle;
 };
 
-export function DepartmentPicker({ value, onChange, allowAll = false, style }: Props) {
-  if (!seesAllDepartments()) {
+// Shown to Admin and CMD only. The list comes from GET /departments.
+export function DepartmentPicker({ value, onChange, scope, style }: Props) {
+  const canSwitch = seesAllDepartments();
+  const arg = useMemo(() => (scope ? { with: scope } : {}), [scope]);
+  const { data } = useDepartmentsQuery(arg, { skip: !canSwitch });
+  const options = useMemo(
+    () => (data ?? []).map(d => ({ id: d.key, label: d.name })),
+    [data],
+  );
+  if (!canSwitch) {
     return null;
   }
-  const options: DropdownOption[] = allowAll
-    ? [{ id: 'all', label: 'All departments' }, ...departments]
-    : departments;
   return (
     <Dropdown
       label="Department"
+      placeholder={data ? 'Select department' : 'Fetching departments'}
       options={options}
       value={value}
       onChange={onChange}

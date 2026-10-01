@@ -1,33 +1,43 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Plus } from 'lucide-react-native';
+import { AppText } from '../components/AppText';
+import { Card } from '../components/Card';
 import { CardList } from '../components/CardList';
 import { DateField } from '../components/DateField';
 import { Dropdown } from '../components/Dropdown';
 import { EmptyState } from '../components/EmptyState';
-import { FilterBar } from '../components/FilterBar';
+import { FilterBar, FilterButton } from '../components/FilterBar';
 import { FilterChips } from '../components/FilterChips';
 import { IconTile } from '../components/IconTile';
-import { QuickAdd } from '../components/QuickAdd';
+import { Notice } from '../components/Notice';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { ScreenScroll } from '../components/ScreenScroll';
+import { SearchField } from '../components/SearchField';
 import { SegmentedControl } from '../components/SegmentedControl';
+import { ShimmerRows } from '../components/Shimmer';
 import { SwitchRow } from '../components/SwitchRow';
 import { TaskRow } from '../components/TaskRow';
-import { departments } from '../data/departments';
-import { locations, Task, today } from '../data/mock';
-import { currentUser, seesAllDepartments } from '../data/user';
-import { useStore } from '../state/Store';
-import { isMine, useVisibleTasks } from '../state/views';
-import { sameMonth, TODAY_ISO, weekOf } from '../utils/dates';
+import { seesAllDepartments } from '../data/user';
+import { errorMessage } from '../store';
+import {
+  ApiPriority,
+  TaskBox,
+  TaskFilters,
+  TaskStatus,
+  TASKS_PER_PAGE,
+  usePeopleQuery,
+  useTaskMetaQuery,
+  useToggleTaskMutation,
+} from '../store/api/tasksApi';
+import { useTaskList } from '../tasks/useTaskList';
+import { longDate, realToday } from '../utils/dates';
+import { useDebounced } from '../utils/useDebounced';
 import { colors, s, shadow, vs } from '../theme';
 
-type Box = 'mine' | 'inbox' | 'out';
-type Status = 'all' | 'today' | 'overdue' | 'returned' | 'upcoming' | 'done';
-
-const emptyText: Record<Status, string> = {
-  all: 'No tasks match.',
+const emptyText: Record<TaskStatus, string> = {
+  all: 'No tasks yet.',
   today: 'Nothing left for today.',
   overdue: 'No overdue tasks. Well kept.',
   returned: 'Nothing has come back to you.',
@@ -37,21 +47,16 @@ const emptyText: Record<Status, string> = {
 
 const priorities = [
   { id: 'all', label: 'All priorities' },
-  { id: 'Critical', label: 'Critical' },
-  { id: 'High', label: 'High' },
-  { id: 'Medium', label: 'Medium' },
-  { id: 'Low', label: 'Low' },
+  { id: 'critical', label: 'Critical' },
+  { id: 'high', label: 'High' },
+  { id: 'medium', label: 'Medium' },
+  { id: 'low', label: 'Low' },
 ];
 const periods = [
   { id: 'any', label: 'Any date' },
   { id: 'today', label: 'Today' },
   { id: 'week', label: 'This week' },
   { id: 'month', label: 'This month' },
-];
-const allDepartments = [{ id: 'all', label: 'All departments' }, ...departments];
-const allLocations = [
-  { id: 'all', label: 'All locations' },
-  ...locations.filter(l => l.id !== 'none'),
 ];
 
 const blank = {
@@ -66,141 +71,152 @@ const blank = {
 
 export function TasksScreen() {
   const nav = useNavigation<any>();
-  const { toggleTask, addTask } = useStore();
-  const tasks = useVisibleTasks();
   const everyone = seesAllDepartments();
 
-  const [box, setBox] = useState<Box>('mine');
-  const [status, setStatus] = useState<Status>('today');
+  const [box, setBox] = useState<TaskBox>('mine');
+  const [status, setStatus] = useState<TaskStatus>('today');
+  const [search, setSearch] = useState('');
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [f, setF] = useState(blank);
-  const set = (change: Partial<typeof blank>) => setF(v => ({ ...v, ...change }));
+  const set = (change: Partial<typeof blank>) =>
+    setF(v => ({ ...v, ...change }));
+  const active = Object.entries(f).filter(
+    ([k, v]) => v !== blank[k as keyof typeof blank],
+  ).length;
 
+  const meta = useTaskMetaQuery().data;
+  const people = usePeopleQuery({}, { skip: !everyone }).data;
+  const departments = useMemo(
+    () => [
+      { id: 'all', label: 'All departments' },
+      ...(meta?.categories ?? []).map(c => ({ id: c.key, label: c.label })),
+    ],
+    [meta],
+  );
+  const places = useMemo(
+    () => [
+      { id: 'all', label: 'All locations' },
+      ...(meta?.locations ?? []).map(l => ({ id: l.key, label: l.label })),
+    ],
+    [meta],
+  );
   const owners = useMemo(
     () => [
       { id: 'all', label: 'Everyone' },
-      ...[...new Set(tasks.map(t => t.owner))].sort().map(o => ({ id: o, label: o })),
+      ...(people ?? []).map(p => ({ id: String(p.id), label: p.name })),
     ],
-    [tasks],
+    [people],
   );
 
-  const passes = (t: Task) => {
-    const week = weekOf(TODAY_ISO);
-    const day = t.dueDate;
-    return (
-      (f.priority === 'all' || t.priority === f.priority) &&
-      (f.dept === 'all' ||
-        t.area === departments.find(d => d.id === f.dept)?.label) &&
-      (f.place === 'all' || t.location === f.place) &&
-      (f.owner === 'all' || t.owner === f.owner) &&
-      (!f.hard || !!t.hard) &&
-      (!f.date || day === f.date) &&
-      (f.period === 'any' ||
-        (!!day &&
-          (f.period === 'today'
-            ? day === TODAY_ISO
-            : f.period === 'week'
-            ? day >= week[0] && day <= week[6]
-            : sameMonth(day, TODAY_ISO))))
-    );
+  // Every filter travels to the server as its own query parameter.
+  const term = useDebounced(search.trim());
+  const filters = useMemo<TaskFilters>(
+    () => ({
+      box,
+      ...(box === 'mine' ? { status } : null),
+      ...(term ? { search: term } : null),
+      ...(f.priority !== 'all'
+        ? { priority: f.priority as ApiPriority }
+        : null),
+      ...(f.dept !== 'all' ? { department: f.dept } : null),
+      ...(f.place !== 'all' ? { location: f.place } : null),
+      ...(everyone && f.owner !== 'all' ? { owner: Number(f.owner) } : null),
+      ...(f.hard ? { hard: 1 as const } : null),
+      ...(f.date
+        ? { due_date: f.date }
+        : f.period !== 'any'
+        ? { due: f.period as 'today' | 'week' | 'month' }
+        : null),
+    }),
+    [box, status, term, f, everyone],
+  );
+  const list = useTaskList(filters);
+  const counts = list.counts;
+
+  const [toggle, toggling] = useToggleTaskMutation();
+  // A tick shows at once; the list catches up when the server answers.
+  const [flipped, setFlipped] = useState<Record<number, boolean>>({});
+  useEffect(() => setFlipped({}), [list.rows]);
+
+  const tick = (id: number, checked: boolean) => {
+    setFlipped(v => ({ ...v, [id]: !checked }));
+    toggle(id)
+      .unwrap()
+      .catch(() => setFlipped(v => ({ ...v, [id]: checked })));
   };
-  const active =
-    Object.entries(f).filter(([k, v]) => v !== blank[k as keyof typeof blank]).length;
 
-  const lists = useMemo(() => {
-    const inbox = tasks.filter(t => t.from && !isMine(t));
-    const out = tasks.filter(t => t.escalatedTo && isMine(t));
-    // Admin and CMD also see other people's tasks in the main list.
-    const mine = tasks.filter(t => !inbox.includes(t) && !out.includes(t));
-    return {
-      inbox,
-      out,
-      all: mine,
-      today: mine.filter(t => t.bucket === 'today' && !t.done),
-      overdue: mine.filter(t => t.overdue && !t.done),
-      returned: mine.filter(t => t.returned && !t.done),
-      upcoming: mine.filter(t => t.bucket === 'upcoming' && !t.done),
-      done: mine.filter(t => t.done),
-    };
-  }, [tasks]);
-
-  const base =
-    box === 'inbox' ? lists.inbox : box === 'out' ? lists.out : lists[status];
-  const shown = base.filter(passes);
-  const count = (key: Status) => lists[key].filter(passes).length;
-
-  const empty = active
-    ? 'No tasks match these filters.'
+  const filtering = active > 0 || !!term;
+  const empty = filtering
+    ? 'No tasks match.'
     : box === 'inbox'
     ? 'Nobody has escalated a task to you.'
     : box === 'out'
     ? 'You have no tasks waiting with a colleague.'
     : emptyText[status];
-
-  const quickAdd = (title: string) =>
-    addTask({
-      owner: currentUser.name,
-      title,
-      priority: 'Medium',
-      area: currentUser.department,
-      due: 'Today',
-      dueDate: TODAY_ISO,
-      bucket: 'today',
-    });
+  const failure = list.failed ? list.error : toggling.error;
+  const today = longDate(realToday());
 
   return (
     <View style={styles.root}>
       <ScreenHeader
-        eyebrow={everyone ? `${today.short} · everyone's tasks` : today.short}
+        eyebrow={everyone ? `${today} · everyone's tasks` : today}
         title={everyone ? 'Tasks' : 'My tasks'}
         right={
           <Pressable
             accessibilityLabel="Add task"
-            onPress={() => nav.navigate('TaskForm')}>
+            onPress={() => nav.navigate('TaskForm')}
+          >
             <IconTile size={38} bg={colors.yellow} style={styles.add}>
               <Plus size={s(20)} color={colors.yellowInk} strokeWidth={2.25} />
             </IconTile>
           </Pressable>
-        }>
+        }
+      >
         <SegmentedControl
+          compact
           value={box}
           onChange={setBox}
           options={[
             {
               key: 'mine',
               label: everyone ? 'All tasks' : 'My tasks',
-              count: lists.all.filter(t => !t.done).length,
+              count: counts?.mine,
             },
             {
               key: 'inbox',
               label: 'Inbox',
-              count: lists.inbox.length,
-              countColor: lists.inbox.length ? colors.redInk : undefined,
+              count: counts?.inbox,
+              countColor: counts?.inbox ? colors.redInk : undefined,
             },
-            { key: 'out', label: 'Escalated out', count: lists.out.length },
+            { key: 'out', label: 'Escalated out', count: counts?.out },
           ]}
         />
       </ScreenHeader>
 
-      <ScreenScroll contentContainerStyle={styles.scroll}>
-        {box === 'mine' ? (
-          <>
-            <QuickAdd placeholder="Quick add: type a task and press +" onAdd={quickAdd} />
-            <FilterChips
-              value={status}
-              onChange={setStatus}
-              options={[
-                { key: 'today', label: 'Today', count: count('today') },
-                { key: 'overdue', label: 'Overdue', count: count('overdue'), alert: true },
-                { key: 'returned', label: 'Returned', count: count('returned'), alert: true },
-                { key: 'upcoming', label: 'Upcoming', count: count('upcoming') },
-                { key: 'done', label: 'Done', count: count('done') },
-                { key: 'all', label: 'All', count: count('all') },
-              ]}
-            />
-          </>
-        ) : null}
-
-        <FilterBar active={active} onClear={() => setF(blank)}>
+      <ScreenScroll
+        contentContainerStyle={styles.scroll}
+        onEndReached={list.loadMore}
+      >
+        <View style={styles.tools}>
+          <SearchField
+            value={search}
+            onChange={setSearch}
+            placeholder="Search tasks"
+            style={styles.search}
+          />
+          <FilterButton
+            active={active}
+            open={filtersOpen}
+            onPress={() => setFiltersOpen(v => !v)}
+          />
+        </View>
+        <FilterBar
+          open={filtersOpen}
+          onClose={() => setFiltersOpen(false)}
+          active={active}
+          onClear={() => setF(blank)}
+          doneLabel="Show tasks"
+        >
           <Dropdown
             label="Priority"
             options={priorities}
@@ -209,13 +225,13 @@ export function TasksScreen() {
           />
           <Dropdown
             label="Department"
-            options={allDepartments}
+            options={departments}
             value={f.dept}
             onChange={dept => set({ dept })}
           />
           <Dropdown
             label="Location"
-            options={allLocations}
+            options={places}
             value={f.place}
             onChange={place => set({ place })}
           />
@@ -246,24 +262,76 @@ export function TasksScreen() {
             onChange={hard => set({ hard })}
           />
         </FilterBar>
+        {box === 'mine' ? (
+          <View style={styles.chips}>
+            <FilterChips
+              value={status}
+              onChange={setStatus}
+              options={[
+                { key: 'today', label: 'Today', count: counts?.today },
+                {
+                  key: 'overdue',
+                  label: 'Overdue',
+                  count: counts?.overdue,
+                  alert: true,
+                },
+                {
+                  key: 'returned',
+                  label: 'Returned',
+                  count: counts?.returned,
+                  alert: true,
+                },
+                { key: 'upcoming', label: 'Upcoming', count: counts?.upcoming },
+                { key: 'done', label: 'Done', count: counts?.done },
+                { key: 'all', label: 'All', count: counts?.all },
+              ]}
+            />
+          </View>
+        ) : null}
 
-        {shown.length ? (
+        {failure ? (
+          <Notice
+            tone="error"
+            title={errorMessage(failure)}
+            style={styles.list}
+          />
+        ) : null}
+
+        {list.firstLoad ? (
+          <Card style={styles.list}>
+            <ShimmerRows rows={6} />
+          </Card>
+        ) : list.rows.length ? (
           <CardList inset={box === 'mine' ? 54 : 16} style={styles.list}>
-            {shown.map(t => (
-              <TaskRow
-                key={t.id}
-                task={t}
-                checked={!!t.done}
-                readOnly={box !== 'mine'}
-                showOwner={everyone}
-                onToggle={() => toggleTask(t.id)}
-                onOpen={() => nav.navigate('TaskDetail', { id: t.id })}
-              />
-            ))}
+            {list.rows.map(t => {
+              const checked = flipped[t.id] ?? t.done;
+              return (
+                <TaskRow
+                  key={t.id}
+                  task={t}
+                  checked={checked}
+                  readOnly={box !== 'mine'}
+                  showOwner={everyone}
+                  onToggle={() => tick(t.id, checked)}
+                  onOpen={() => nav.navigate('TaskDetail', { id: t.id })}
+                />
+              );
+            })}
           </CardList>
-        ) : (
+        ) : list.failed ? null : (
           <EmptyState text={empty} />
         )}
+
+        {list.loadingMore ? (
+          <Card style={styles.list}>
+            <ShimmerRows rows={2} />
+          </Card>
+        ) : null}
+        {list.rows.length && !list.hasMore && list.total > TASKS_PER_PAGE ? (
+          <AppText variant="meta" color={colors.inkFaint} style={styles.end}>
+            That is all {list.total} tasks.
+          </AppText>
+        ) : null}
       </ScreenScroll>
     </View>
   );
@@ -272,7 +340,10 @@ export function TasksScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.ground },
   add: { ...shadow.action },
-  scroll: { paddingTop: vs(16) },
-  list: { marginTop: vs(14) },
+  scroll: { paddingTop: vs(12) },
+  tools: { flexDirection: 'row', alignItems: 'center', gap: s(8) },
+  search: { flex: 1 },
+  chips: { marginTop: vs(10) },
+  list: { marginTop: vs(10) },
+  end: { textAlign: 'center', marginTop: vs(16) },
 });
-

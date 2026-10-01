@@ -1,9 +1,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { MapPin, Users } from 'lucide-react-native';
-import type { DiaryKind } from '../data/mock';
-import { currentUser } from '../data/user';
-import type { DiaryLine } from '../state/views';
+import type { DiaryKind, DiaryLine } from '../diary/model';
 import { colors, hairline, s, vs } from '../theme';
 import { AppText } from './AppText';
 import { Card } from './Card';
@@ -11,14 +9,17 @@ import { Dot } from './Dot';
 import { IconText } from './IconText';
 import { Pill, PillTone } from './Pill';
 
-export const diaryKinds: Record<DiaryKind, { label: string; ink: string; tone: PillTone }> = {
+export const diaryKinds: Record<
+  DiaryKind,
+  { label: string; ink: string; tone: PillTone }
+> = {
   appointment: { label: 'Appointment', ink: colors.tealDeep, tone: 'teal' },
   focus: { label: 'Focus', ink: colors.greenInk, tone: 'good' },
   reminder: { label: 'Reminder', ink: colors.amberInk, tone: 'watch' },
   event: { label: 'Event', ink: colors.redInk, tone: 'critical' },
   meeting: { label: 'Meeting', ink: colors.blueInk, tone: 'info' },
+  task: { label: 'Task', ink: colors.inkSoft, tone: 'low' },
 };
-
 
 type Props = {
   line: DiaryLine;
@@ -32,7 +33,11 @@ export function DiaryItem({ line, last, onPress }: Props) {
   return (
     <View style={styles.entry}>
       <View style={styles.rail}>
-        <AppText variant="metaStrong" color={colors.inkSoft} style={styles.time}>
+        <AppText
+          variant="metaStrong"
+          color={colors.inkSoft}
+          style={styles.time}
+        >
           {line.time}
         </AppText>
         <Dot color={k.ink} size={9} hollow={waiting} style={styles.node} />
@@ -42,25 +47,35 @@ export function DiaryItem({ line, last, onPress }: Props) {
         <Card style={[styles.card, waiting && styles.waiting]}>
           <View style={styles.tags}>
             <Pill label={k.label} tone={k.tone} />
-            {waiting ? <Pill label="Awaiting your reply" tone="escalated" /> : null}
-            {line.invite === 'tentative' ? <Pill label="Maybe" tone="watch" /> : null}
+            {waiting ? (
+              <Pill label="Awaiting your reply" tone="escalated" />
+            ) : null}
+            {line.invite === 'tentative' ? (
+              <Pill label="Maybe" tone="watch" />
+            ) : null}
             {line.source ? <Pill label={line.source} tone="low" /> : null}
           </View>
           <AppText variant="body" style={styles.title}>
             {line.title}
           </AppText>
-          {line.owner !== currentUser.name && !line.invite ? (
+          {!line.mine && !line.invite ? (
             <AppText variant="metaStrong" color={colors.inkSoft}>
               {line.owner}
             </AppText>
           ) : null}
-          <AppText variant="meta" color={colors.inkMuted} numberOfLines={2}>
-            {line.body}
-          </AppText>
-          {line.place || line.attendees?.length ? (
+          {line.invite ? (
+            <AppText variant="meta" color={colors.inkMuted}>
+              Invited by {line.owner}
+            </AppText>
+          ) : line.body ? (
+            <AppText variant="meta" color={colors.inkMuted} numberOfLines={2}>
+              {line.body}
+            </AppText>
+          ) : null}
+          {line.place || line.attendees.length ? (
             <View style={styles.meta}>
               {line.place ? <IconText icon={MapPin} text={line.place} /> : null}
-              {line.attendees?.length ? (
+              {line.attendees.length ? (
                 <IconText icon={Users} text={String(line.attendees.length)} />
               ) : null}
             </View>

@@ -6,37 +6,44 @@ import { FormCard } from '../components/FormCard';
 import { FormScreen } from '../components/FormScreen';
 import { Notice } from '../components/Notice';
 import { TextField } from '../components/TextField';
-import { DEMO_PASSWORD } from '../data/mock';
+import { errorMessage, fieldErrors } from '../store';
+import { useChangePasswordMutation } from '../store/api/authApi';
 import { vs } from '../theme';
 
 export function ChangePasswordScreen() {
+  const [change, { isLoading, error, isSuccess, reset }] = useChangePasswordMutation();
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
   const [confirm, setConfirm] = useState('');
-  const [tried, setTried] = useState(false);
-  const [done, setDone] = useState(false);
+  const [local, setLocal] = useState<string>();
 
-  const errors = {
-    current:
-      current !== DEMO_PASSWORD ? 'Your current password is incorrect.' : undefined,
-    next:
-      next.length < 8
-        ? 'Use at least 8 characters.'
-        : next === current
-        ? 'Choose a password different from the current one.'
-        : undefined,
-    confirm: confirm !== next ? 'The two passwords do not match.' : undefined,
-  };
-  const valid = !errors.current && !errors.next && !errors.confirm;
-
-  const submit = () => {
-    setTried(true);
-    if (valid) {
-      setDone(true);
+  const submit = async () => {
+    // The API checks everything again; this only saves a round trip.
+    if (confirm !== next) {
+      setLocal('The new password and confirmation do not match.');
+      return;
+    }
+    setLocal(undefined);
+    try {
+      await change({
+        current_password: current,
+        password: next,
+        password_confirmation: confirm,
+      }).unwrap();
       setCurrent('');
       setNext('');
       setConfirm('');
-      setTried(false);
+    } catch {
+      // Shown from the API's message below.
+    }
+  };
+
+  const fields = fieldErrors(error);
+  const edit = (set: (v: string) => void) => (v: string) => {
+    set(v);
+    setLocal(undefined);
+    if (error || isSuccess) {
+      reset();
     }
   };
 
@@ -45,12 +52,12 @@ export function ChangePasswordScreen() {
       title="Change password"
       footer={
         <Button
-          label="Update password"
-          disabled={!current || !next || !confirm}
+          label={isLoading ? 'Updating…' : 'Update password'}
+          disabled={!current || !next || !confirm || isLoading}
           onPress={submit}
         />
       }>
-      {done ? (
+      {isSuccess ? (
         <Notice
           tone="success"
           title="Password updated"
@@ -58,37 +65,37 @@ export function ChangePasswordScreen() {
           style={styles.notice}
         />
       ) : null}
+      {error && !fields.current_password && !fields.password ? (
+        <Notice tone="error" title={errorMessage(error)} style={styles.notice} />
+      ) : null}
       <FormCard>
         <TextField
           label="Current password"
           icon={Lock}
           secure
           value={current}
-          onChangeText={v => {
-            setCurrent(v);
-            setDone(false);
-          }}
+          onChangeText={edit(setCurrent)}
           autoCapitalize="none"
-          error={tried ? errors.current : undefined}
+          error={fields.current_password}
         />
         <TextField
           label="New password"
           icon={KeyRound}
           secure
           value={next}
-          onChangeText={setNext}
+          onChangeText={edit(setNext)}
           autoCapitalize="none"
           placeholder="At least 8 characters"
-          error={tried ? errors.next : undefined}
+          error={fields.password}
         />
         <TextField
           label="Confirm new password"
           icon={KeyRound}
           secure
           value={confirm}
-          onChangeText={setConfirm}
+          onChangeText={edit(setConfirm)}
           autoCapitalize="none"
-          error={tried ? errors.confirm : undefined}
+          error={local}
         />
       </FormCard>
     </FormScreen>

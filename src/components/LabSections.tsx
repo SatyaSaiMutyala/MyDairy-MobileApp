@@ -1,42 +1,57 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Check, ChevronDown, ChevronUp } from 'lucide-react-native';
-import type { Activity } from '../data/labReadiness';
-import { itemOf, LabRecord, LabSection } from '../state/LabStore';
+import type { Activity, LabItem, LabSection } from '../lab/model';
 import { colors, s, vs } from '../theme';
 import { AppText } from './AppText';
 import { Card } from './Card';
 import { CardList } from './CardList';
 import { IconTile } from './IconTile';
+import { Pill } from './Pill';
 
 type Props = {
   sections: LabSection[];
-  record: LabRecord | undefined;
-  // Sections that start folded. Default: the ones already complete.
+  items: Record<string, LabItem>;
   renderRow: (activity: Activity) => React.ReactNode;
   // Hide activities nobody actioned (used in history).
   onlyActioned?: boolean;
 };
 
 // The checklist grouped by section; each section folds and unfolds.
-export function LabSections({ sections, record, renderRow, onlyActioned = false }: Props) {
-  const [folded, setFolded] = useState<Record<string, boolean>>({});
+//
+// Which sections start folded is decided once, when the record first loads:
+// the ones that are already complete. After that only the person folds or
+// unfolds a section. Finishing the last item of a section must NOT fold it,
+// or the page jumps and the person loses their place.
+export function LabSections({ sections, items, renderRow, onlyActioned = false }: Props) {
+  const [folded, setFolded] = useState<Record<string, boolean> | null>(null);
+
+  useEffect(() => {
+    if (folded === null && sections.length) {
+      setFolded(
+        Object.fromEntries(
+          sections.map(sec => [sec.title, sec.complete === sec.rows.length]),
+        ),
+      );
+    }
+  }, [folded, sections]);
 
   return (
     <>
       {sections.map(sec => {
         const rows = onlyActioned
           ? sec.rows.filter(a => {
-              const item = itemOf(record, a.key);
-              return item.status !== null || item.photos.length > 0;
+              const item = items[a.key];
+              return item && (item.status !== null || item.photos.length > 0);
             })
           : sec.rows;
         if (!rows.length) {
           return null;
         }
         const allDone = sec.complete === sec.rows.length;
-        const isFolded = folded[sec.title] ?? allDone;
-        const toggle = () => setFolded(f => ({ ...f, [sec.title]: !isFolded }));
+        // Until the first load has decided, show complete sections folded.
+        const isFolded = folded ? !!folded[sec.title] : allDone;
+        const toggle = () => setFolded(f => ({ ...(f ?? {}), [sec.title]: !isFolded }));
 
         if (isFolded) {
           return (
@@ -73,9 +88,13 @@ export function LabSections({ sections, record, renderRow, onlyActioned = false 
               <AppText variant="heading" style={styles.title}>
                 {sec.title}
               </AppText>
-              <AppText variant="metaStrong" color={colors.inkMuted}>
-                {sec.complete} of {sec.rows.length}
-              </AppText>
+              {allDone ? (
+                <Pill label="Complete" tone="signed" icon={Check} />
+              ) : (
+                <AppText variant="metaStrong" color={colors.inkMuted}>
+                  {sec.complete} of {sec.rows.length}
+                </AppText>
+              )}
               <ChevronUp size={s(20)} color={colors.inkSoft} strokeWidth={2} />
             </Pressable>
             <CardList inset={14}>{rows.map(renderRow)}</CardList>

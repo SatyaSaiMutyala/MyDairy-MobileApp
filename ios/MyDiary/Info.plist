@@ -35,10 +35,10 @@
 	</dict>
 	<key>NSCameraUsageDescription</key>
 	<string>MyDiary uses the camera to photograph checklist evidence and to take your sign-off selfie.</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>MyDiary lets you attach photographs from your library as evidence.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>MyDiary records where a lab checklist was started and signed.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>MyDiary lets you attach photographs from your library as evidence.</string>
 	<key>RCTNewArchEnabled</key>
 	<true/>
 	<key>UIAppFonts</key>
@@ -47,6 +47,10 @@
 		<string>Poppins-Regular.ttf</string>
 		<string>Poppins-Bold.ttf</string>
 		<string>Poppins-SemiBold.ttf</string>
+	</array>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
 	</array>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>

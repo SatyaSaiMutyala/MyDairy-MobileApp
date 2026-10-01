@@ -14,44 +14,56 @@ import { ScreenHeader } from '../components/ScreenHeader';
 import { ScreenScroll } from '../components/ScreenScroll';
 import { SegmentedControl } from '../components/SegmentedControl';
 import { WeekStrip } from '../components/WeekStrip';
+import { Card } from '../components/Card';
+import { Notice } from '../components/Notice';
+import { ShimmerRows } from '../components/Shimmer';
 import { seesAllDepartments } from '../data/user';
-import { useStore } from '../state/Store';
-import { DiaryLine, useDiaryLines, useMyInvites } from '../state/views';
+import { DiaryLine, toInvite } from '../diary/model';
+import { useDiaryMonth } from '../diary/useDiary';
+import { errorMessage } from '../store';
+import {
+  useDiaryInvitesInfiniteQuery,
+  useRespondInviteMutation,
+} from '../store/api/diaryApi';
+import { pagesOf } from '../store/pages';
 import {
   addDays,
   addMonths,
   longDate,
   monthTitle,
+  realToday,
+  sameMonth,
   shortDate,
-  TODAY_ISO,
   weekOf,
 } from '../utils/dates';
 import { colors, s, space, vs } from '../theme';
 
 type View_ = 'day' | 'week' | 'month';
 
+const PENDING = { status: 'pending' } as const;
+
 export function DiaryScreen() {
   const nav = useNavigation<any>();
-  const store = useStore();
+  const TODAY_ISO = realToday();
   const [view, setView] = useState<View_>('day');
   const [picked, setPicked] = useState(TODAY_ISO);
 
-  const lines = useDiaryLines();
+  const { lines, counts, loading, failed, error } = useDiaryMonth(picked);
   const everyone = seesAllDepartments();
-
-  const counts = useMemo(() => {
-    const map: Record<string, number> = {};
-    lines.forEach(l => (map[l.date] = (map[l.date] ?? 0) + 1));
-    return map;
-  }, [lines]);
   const busy = useMemo(() => new Set(Object.keys(counts)), [counts]);
 
-  const pending = useMyInvites().filter(i => i.status === 'pending');
+  const monthCount = lines.filter(l => sameMonth(l.date, picked)).length;
+  const invites = pagesOf(useDiaryInvitesInfiniteQuery(PENDING));
+  const pending = useMemo(() => invites.rows.map(toInvite), [invites.rows]);
+  const [respond, responding] = useRespondInviteMutation();
+  const failure = failed ? error : responding.error;
   const open = (line: DiaryLine) => nav.navigate('DiaryEntry', { id: line.id });
 
   const step = (dir: 1 | -1) =>
     setPicked(p =>
-      view === 'month' ? addMonths(p, dir) : addDays(p, view === 'week' ? 7 * dir : dir),
+      view === 'month'
+        ? addMonths(p, dir)
+        : addDays(p, view === 'week' ? 7 * dir : dir),
     );
 
   const list = (day: string) => {
@@ -72,7 +84,13 @@ export function DiaryScreen() {
   return (
     <View style={styles.root}>
       <ScreenHeader
-        eyebrow={monthTitle(picked)}
+        eyebrow={
+          view === 'month'
+            ? `${monthCount} ${
+                monthCount === 1 ? 'entry' : 'entries'
+              } this month`
+            : monthTitle(picked)
+        }
         title={everyone ? 'Diary · everyone' : 'My diary'}
         eyebrowAction={
           picked === TODAY_ISO ? undefined : (
@@ -95,7 +113,8 @@ export function DiaryScreen() {
               { key: 'month', label: 'Month' },
             ]}
           />
-        }>
+        }
+      >
         <View style={styles.strip}>
           <IconButton
             icon={ChevronLeft}
@@ -107,7 +126,11 @@ export function DiaryScreen() {
             onPress={() => step(-1)}
           />
           {view === 'month' ? (
-            <AppText variant="label" color={colors.white} style={styles.monthName}>
+            <AppText
+              variant="label"
+              color={colors.white}
+              style={styles.monthName}
+            >
               {monthTitle(picked)}
             </AppText>
           ) : (
@@ -130,7 +153,7 @@ export function DiaryScreen() {
         </View>
       </ScreenHeader>
 
-      <ScreenScroll bottomGap={90}>
+      <ScreenScroll bottomGap={90} onEndReached={invites.loadMore}>
         {view === 'month' ? (
           <View style={styles.month}>
             <MonthGrid
@@ -144,24 +167,40 @@ export function DiaryScreen() {
 
         {pending.length ? (
           <>
-            <Eyebrow label={`Meeting invitations · ${pending.length} waiting`} />
+            <Eyebrow label={`Invitations · ${invites.total} waiting`} />
             {pending.map(inv => (
               <InviteCard
                 key={inv.id}
                 invite={inv}
-                onRespond={r => store.respondInvite(inv.id, r)}
+                busy={responding.isLoading}
+                onOpen={() => nav.navigate('DiaryEntry', { id: inv.entryId })}
+                onRespond={response => respond({ inviteId: inv.id, response })}
               />
             ))}
           </>
         ) : null}
 
-        {view === 'week' ? (
+        {failure ? (
+          <Notice
+            tone="error"
+            title={errorMessage(failure)}
+            style={styles.notice}
+          />
+        ) : null}
+
+        {loading ? (
+          <Card style={styles.notice}>
+            <ShimmerRows rows={4} icon={false} lines={2} />
+          </Card>
+        ) : failed ? null : view === 'week' ? (
           week.map(day => {
             const rows = lines.filter(l => l.date === day);
             return (
               <View key={day}>
                 <Eyebrow
-                  label={`${shortDate(day)}${day === TODAY_ISO ? ' · today' : ''}`}
+                  label={`${shortDate(day)}${
+                    day === TODAY_ISO ? ' · today' : ''
+                  }`}
                 />
                 {rows.length ? (
                   list(day)
@@ -211,5 +250,6 @@ const styles = StyleSheet.create({
   week: { flex: 1 },
   monthName: { flex: 1, textAlign: 'center' },
   month: { marginTop: vs(16) },
+  notice: { marginTop: vs(14) },
   fab: { position: 'absolute', right: space.gutter, bottom: vs(16) },
 });

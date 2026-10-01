@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Image, StyleSheet, View } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Camera, Lock, RotateCcw, UserRound } from 'lucide-react-native';
@@ -7,25 +7,26 @@ import { Button } from '../components/Button';
 import { FormCard } from '../components/FormCard';
 import { FormScreen } from '../components/FormScreen';
 import { Notice } from '../components/Notice';
+import { ShimmerRows } from '../components/Shimmer';
 import { SignerCard } from '../components/SignerCard';
 import { Stat } from '../components/Stat';
-import { dateLabel, declarations, Phase, units } from '../data/labReadiness';
-import { currentUser } from '../data/user';
-import { recordKey, summarise, useLab } from '../state/LabStore';
+import { uploadFile } from '../lab/model';
+import { errorMessage } from '../store';
+import {
+  Target,
+  useLabSignOffMutation,
+  useLabStateQuery,
+} from '../store/api/labApi';
+import { longDate } from '../utils/dates';
+import { getPosition, Point } from '../utils/location';
 import { pickPhotos, takeSelfie } from '../utils/photos';
 import { colors, hairline, radius, s, vs } from '../theme';
 
 export function LabSignOffScreen() {
   const nav = useNavigation();
-  const { unitId, date, phase } = useRoute<any>().params as {
-    unitId: string;
-    date: string;
-    phase: Phase;
-  };
-  const lab = useLab();
-  const record = lab.records[recordKey(unitId, date, phase)];
-  const totals = summarise(phase, record);
-  const unit = units.find(u => u.id === unitId);
+  const target = useRoute<any>().params as Target;
+  const state = useLabStateQuery(target);
+  const [signOff, call] = useLabSignOffMutation();
 
   const [selfie, setSelfie] = useState<string>();
   const [error, setError] = useState<string>();
@@ -51,36 +52,126 @@ export function LabSignOffScreen() {
     }
   };
 
+  // The position is fetched while the person reads the declaration, so
+  // signing never has to wait for it.
+  const point = useRef<Point | null>(null);
+  useEffect(() => {
+    getPosition().then(p => {
+      point.current = p;
+    });
+  }, []);
+  const [busy, setBusy] = useState(false);
+
+  const submit = async () => {
+    if (!selfie || busy) {
+      return;
+    }
+    setBusy(true);
+    try {
+      await signOff({
+        ...target,
+        selfie: uploadFile(selfie, 'selfie.jpg'),
+        point: point.current,
+      }).unwrap();
+      nav.goBack();
+    } catch {
+      // The API's message is shown above the button.
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const summary = state.data?.summary;
+  const phase = target.phase;
+
+  if (state.isLoading) {
+    return (
+      <FormScreen title="Sign off">
+        <FormCard>
+          <ShimmerRows rows={4} icon={false} />
+        </FormCard>
+      </FormScreen>
+    );
+  }
+
   return (
     <FormScreen
-      title={phase === 'opening' ? 'Opening declaration' : 'Closing declaration'}
+      title={
+        phase === 'opening' ? 'Opening declaration' : 'Closing declaration'
+      }
       footer={
-        <Button
-          label="Sign off and lock"
-          iconLeft={Lock}
-          disabled={!selfie || totals.open > 0}
-          onPress={() => {
-            lab.signOff(unitId, date, phase, selfie);
-            nav.goBack();
-          }}
+        <>
+          {call.error ? (
+            <Notice
+              tone="error"
+              title={errorMessage(call.error)}
+              style={styles.footNotice}
+            />
+          ) : !summary?.complete && summary ? (
+            <Notice
+              tone="info"
+              title="This record is not complete yet"
+              text={
+                summary.blockers[0] ??
+                `${summary.pending} activities still have no answer.`
+              }
+              style={styles.footNotice}
+            />
+          ) : null}
+          <Button
+            label={busy ? 'Signing off…' : 'Sign off and lock'}
+            iconLeft={Lock}
+            disabled={!selfie || !summary?.complete || busy}
+            onPress={submit}
+          />
+        </>
+      }
+    >
+      {state.error ? (
+        <Notice
+          tone="error"
+          title={errorMessage(state.error)}
+          style={styles.notice}
         />
-      }>
-      <FormCard title={`${unit?.name} · ${dateLabel(date)}`}>
-        <View style={styles.stats}>
-          <Stat size="sm" value={totals.done} label="Done" dot={{ color: colors.teal }} />
-          <Stat size="sm" value={totals.deviation} label="Deviation" dot={{ color: colors.amber }} />
-          <Stat size="sm" value={totals.na} label="N/A" dot={{ color: colors.slate }} />
-          <Stat size="sm" value={totals.photos} label="Photos" dot={{ color: colors.blue }} />
-        </View>
-      </FormCard>
+      ) : null}
+      {summary ? (
+        <FormCard title={`${state.data?.unit.name} · ${longDate(target.date)}`}>
+          <View style={styles.stats}>
+            <Stat
+              size="sm"
+              value={summary.done}
+              label="Done"
+              dot={{ color: colors.teal }}
+            />
+            <Stat
+              size="sm"
+              value={summary.dev}
+              label="Deviation"
+              dot={{ color: colors.amber }}
+            />
+            <Stat
+              size="sm"
+              value={summary.na}
+              label="N/A"
+              dot={{ color: colors.slate }}
+            />
+            <Stat
+              size="sm"
+              value={summary.photos}
+              label="Photos"
+              dot={{ color: colors.blue }}
+            />
+          </View>
+        </FormCard>
+      ) : null}
 
       <FormCard title="Declaration">
         <AppText variant="bodyRegular" style={styles.declaration}>
-          {declarations[phase]}
+          {state.data?.declaration}
         </AppText>
         <SignerCard
-          name={currentUser.name}
-          role={currentUser.role}
+          name={state.data?.signer.name ?? ''}
+          role={state.data?.signer.role ?? ''}
           note="Taken from your login — it cannot be typed"
         />
       </FormCard>
@@ -91,7 +182,11 @@ export function LabSignOffScreen() {
             {selfie ? (
               <Image source={{ uri: selfie }} style={styles.photo} />
             ) : (
-              <UserRound size={s(40)} color={colors.inkFaint} strokeWidth={1.4} />
+              <UserRound
+                size={s(40)}
+                color={colors.inkFaint}
+                strokeWidth={1.4}
+              />
             )}
           </View>
           <View style={styles.selfieText}>
@@ -127,6 +222,8 @@ export function LabSignOffScreen() {
 }
 
 const styles = StyleSheet.create({
+  notice: { marginTop: vs(10), marginBottom: vs(4) },
+  footNotice: { marginBottom: vs(10) },
   stats: { flexDirection: 'row', marginBottom: vs(12) },
   declaration: { marginBottom: vs(14) },
   selfieRow: { flexDirection: 'row', gap: s(14), marginBottom: vs(14) },
@@ -144,5 +241,4 @@ const styles = StyleSheet.create({
   photo: { width: '100%', height: '100%' },
   selfieText: { flex: 1 },
   selfieBtn: { marginTop: vs(10) },
-  notice: { marginBottom: vs(14) },
 });

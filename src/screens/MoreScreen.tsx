@@ -7,32 +7,69 @@ import {
   KeyRound,
   LogOut,
   MapPin,
+  Bell,
   TriangleAlert,
 } from 'lucide-react-native';
 import { AppText } from '../components/AppText';
 import { Avatar } from '../components/Avatar';
 import { CardList } from '../components/CardList';
 import { Eyebrow } from '../components/Eyebrow';
+import { signOutIcon, useConfirm } from '../components/ConfirmDialog';
 import { MenuItem, MenuRow } from '../components/MenuRow';
 import { Pill } from '../components/Pill';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { ScreenScroll } from '../components/ScreenScroll';
 import { currentUser } from '../data/user';
-import { useStore } from '../state/Store';
-import { useSession } from '../state/Session';
+import { useAlertList } from '../alerts/useAlertList';
+import { useAppDispatch } from '../store';
+import { lastPushToken } from '../push/usePush';
+import { useLogoutMutation } from '../store/api/authApi';
+import { useForgetDeviceMutation } from '../store/api/notificationsApi';
+import { signedOut } from '../store/slices/sessionSlice';
 import { colors, radius, s, vs } from '../theme';
 
 type Link = MenuItem & { to: string };
 
 const work: Link[] = [
-  { to: 'Alerts', icon: TriangleAlert, title: 'Alerts', detail: 'Raise, follow and close alerts' },
-  { to: 'PreOps', icon: ClipboardList, title: 'Pre-operations checklist', detail: 'Checks before the day begins' },
-  { to: 'DailyReport', icon: FileText, title: 'Daily report', detail: 'End-of-day summary for your unit' },
-  { to: 'Visits', icon: MapPin, title: 'Visit observations', detail: 'Notes and photos from site visits' },
+  {
+    to: 'Notifications',
+    icon: Bell,
+    title: 'Notifications',
+    detail: 'What needs you: tasks, alerts, invitations',
+  },
+  {
+    to: 'Alerts',
+    icon: TriangleAlert,
+    title: 'Alerts',
+    detail: 'Raise, follow and close alerts',
+  },
+  {
+    to: 'PreOps',
+    icon: ClipboardList,
+    title: 'Pre-operations checklist',
+    detail: 'Checks before the day begins',
+  },
+  {
+    to: 'DailyReport',
+    icon: FileText,
+    title: 'Daily report',
+    detail: 'End-of-day summary for your unit',
+  },
+  {
+    to: 'Visits',
+    icon: MapPin,
+    title: 'Visit observations',
+    detail: 'Notes and photos from site visits',
+  },
 ];
 
 const account: Link[] = [
-  { to: 'ChangePassword', icon: KeyRound, title: 'Change password', detail: 'Update your sign-in password' },
+  {
+    to: 'ChangePassword',
+    icon: KeyRound,
+    title: 'Change password',
+    detail: 'Update your sign-in password',
+  },
 ];
 
 const signOutItem: MenuItem = {
@@ -41,10 +78,38 @@ const signOutItem: MenuItem = {
   detail: 'End your shift on this phone',
 };
 
+const OPEN_ALERTS = { status: 'open' } as const;
+
 export function MoreScreen() {
   const nav = useNavigation<any>();
-  const { signOut } = useSession();
-  const openAlerts = useStore().alerts.filter(a => !a.resolved).length;
+  const dispatch = useAppDispatch();
+  const [logout] = useLogoutMutation();
+  const [forgetDevice] = useForgetDeviceMutation();
+  const confirm = useConfirm();
+  // Tell the server to forget the token, then leave. Leaving does not wait
+  // for the server: a dead token is dropped there anyway.
+  const signOut = async () => {
+    const yes = await confirm({
+      title: 'Sign out of MyDiary?',
+      text: 'You will need your email and password to sign in again.',
+      confirmLabel: 'Sign out',
+      cancelLabel: 'Stay',
+      tone: 'danger',
+      icon: signOutIcon,
+    });
+    if (yes) {
+      // Stop pushes to this phone before the token is dropped.
+      const address = lastPushToken();
+      if (address) {
+        await forgetDevice(address)
+          .unwrap()
+          .catch(() => {});
+      }
+      logout();
+      dispatch(signedOut());
+    }
+  };
+  const openAlerts = useAlertList(OPEN_ALERTS).counts?.open ?? 0;
 
   return (
     <View style={styles.root}>
@@ -71,7 +136,9 @@ export function MoreScreen() {
           {work.map(item => (
             <MenuRow
               key={item.title}
-              item={item.to === 'Alerts' ? { ...item, count: openAlerts } : item}
+              item={
+                item.to === 'Alerts' ? { ...item, count: openAlerts } : item
+              }
               onPress={() => nav.navigate(item.to)}
             />
           ))}
@@ -109,6 +176,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.tealDeep,
   },
   profileText: { flex: 1 },
-  nameRow: { flexDirection: 'row', alignItems: 'center', gap: s(8), flexWrap: 'wrap' },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: s(8),
+    flexWrap: 'wrap',
+  },
   version: { textAlign: 'center', marginTop: vs(26) },
 });

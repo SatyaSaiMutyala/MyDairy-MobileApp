@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import type { Attendee, InviteResponse } from '../data/mock';
+import type { Attendee, InviteResponse } from '../diary/model';
 import { colors, s, vs } from '../theme';
 import { AppText } from './AppText';
 import { Pill, PillTone } from './Pill';
@@ -21,7 +21,7 @@ export function AttendeeList({ people }: { people: Attendee[] }) {
         {count('pending')} awaiting
       </AppText>
       {people.map(p => (
-        <View key={p.name} style={styles.row}>
+        <View key={p.id} style={styles.row}>
           <AppText variant="bodyRegular" style={styles.name}>
             {p.name}
           </AppText>

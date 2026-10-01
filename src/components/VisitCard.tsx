@@ -1,7 +1,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Calendar, Clock, MapPin, Users } from 'lucide-react-native';
-import { assessments, Visit, visitTypes } from '../data/mock';
+import { assessments, Visit, visitTypes } from '../visits/model';
 import { longDate } from '../utils/dates';
 import { colors, s, vs } from '../theme';
 import { AppText } from './AppText';
@@ -10,10 +10,14 @@ import { IconText } from './IconText';
 import { PhotoChip } from './PhotoChip';
 import { Pill, PillTone } from './Pill';
 
-export const visitStatus: Record<Visit['status'], { label: string; tone: PillTone }> = {
+export const visitStatus: Record<
+  Visit['status'],
+  { label: string; tone: PillTone }
+> = {
   draft: { label: 'Draft', tone: 'low' },
   submitted: { label: 'Submitted', tone: 'teal' },
   reviewed: { label: 'Reviewed', tone: 'signed' },
+  closed: { label: 'Closed', tone: 'signed' },
 };
 
 export const labelOf = (list: { id: string; label: string }[], id?: string) =>
@@ -46,25 +50,38 @@ export function VisitCard({ visit, onPress }: Props) {
           <Pill label={st.label} tone={st.tone} />
         </View>
         <AppText variant="meta" color={colors.inkMuted}>
-          {labelOf(visitTypes, visit.type)} · {visit.org}
+          {[labelOf(visitTypes, visit.type), visit.org]
+            .filter(Boolean)
+            .join(' · ')}
         </AppText>
 
         <View style={styles.meta}>
           <IconText icon={Calendar} text={longDate(visit.date)} />
-          <IconText icon={MapPin} text={visit.city} />
+          {visit.city ? <IconText icon={MapPin} text={visit.city} /> : null}
           {visit.timeIn ? (
             <IconText
               icon={Clock}
-              text={visit.timeOut ? `${visit.timeIn}–${visit.timeOut}` : visit.timeIn}
+              text={
+                visit.timeOut
+                  ? `${visit.timeIn}–${visit.timeOut}`
+                  : visit.timeIn
+              }
             />
           ) : null}
           {visit.team.length ? (
-            <IconText icon={Users} text={visit.team.map(m => m.name).join(', ')} />
+            <IconText
+              icon={Users}
+              text={visit.team.map(m => m.name).join(', ')}
+            />
           ) : null}
         </View>
 
         {visit.summary || visit.purpose ? (
-          <AppText variant="bodyRegular" color={colors.inkSoft} numberOfLines={2}>
+          <AppText
+            variant="bodyRegular"
+            color={colors.inkSoft}
+            numberOfLines={2}
+          >
             {visit.summary ?? visit.purpose}
           </AppText>
         ) : null}
@@ -73,8 +90,12 @@ export function VisitCard({ visit, onPress }: Props) {
           {visit.assessment ? (
             <Pill label={labelOf(assessments, visit.assessment)!} tone="info" />
           ) : null}
-          {n.positive ? <Pill label={`${n.positive} positive`} tone="good" /> : null}
-          {n.concerns ? <Pill label={`${n.concerns} concerns`} tone="watch" /> : null}
+          {n.positive ? (
+            <Pill label={`${n.positive} positive`} tone="good" />
+          ) : null}
+          {n.concerns ? (
+            <Pill label={`${n.concerns} concerns`} tone="watch" />
+          ) : null}
           {n.ncs ? <Pill label={`${n.ncs} NC`} tone="critical" /> : null}
           {n.openActions ? (
             <Pill label={`${n.openActions} open actions`} tone="high" />

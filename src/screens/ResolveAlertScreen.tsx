@@ -5,43 +5,58 @@ import { Check } from 'lucide-react-native';
 import { AlertRow } from '../components/AlertRow';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
-import { EmptyState } from '../components/EmptyState';
 import { FormCard } from '../components/FormCard';
 import { FormScreen } from '../components/FormScreen';
+import { Notice } from '../components/Notice';
+import { ShimmerRows } from '../components/Shimmer';
 import { TextArea } from '../components/TextArea';
-import { useStore } from '../state/Store';
+import { toAlert } from '../alerts/model';
+import { errorMessage } from '../store';
+import { useAlertQuery, useResolveAlertMutation } from '../store/api/alertsApi';
 import { vs } from '../theme';
 
 export function ResolveAlertScreen() {
   const nav = useNavigation();
-  const route = useRoute<any>();
-  const { alerts, resolveAlert } = useStore();
-  const alert = alerts.find(a => a.id === route.params?.id);
+  const id: number = useRoute<any>().params?.id;
+  const query = useAlertQuery(id);
+  const [resolve, call] = useResolveAlertMutation();
   const [note, setNote] = useState('');
 
-  if (!alert) {
-    return (
-      <FormScreen title="Resolve alert">
-        <EmptyState text="This alert is no longer available." />
-      </FormScreen>
-    );
-  }
+  const submit = async () => {
+    try {
+      await resolve({ id, note: note.trim() || undefined }).unwrap();
+      nav.goBack();
+    } catch {
+      // The API's message is shown at the top.
+    }
+  };
+  const failure = call.error ?? query.error;
 
   return (
     <FormScreen
       title="Resolve alert"
       footer={
         <Button
-          label="Mark as resolved"
+          label={call.isLoading ? 'Saving…' : 'Mark as resolved'}
           iconLeft={Check}
-          onPress={() => {
-            resolveAlert(alert.id, note);
-            nav.goBack();
-          }}
+          disabled={!query.data || call.isLoading}
+          onPress={submit}
         />
-      }>
+      }
+    >
+      {failure ? (
+        <Notice
+          tone="error"
+          title={errorMessage(failure)}
+          style={styles.alert}
+        />
+      ) : null}
       <Card style={styles.alert}>
-        <AlertRow alert={alert} />
+        {query.data ? (
+          <AlertRow alert={toAlert(query.data)} />
+        ) : query.error ? null : (
+          <ShimmerRows rows={1} />
+        )}
       </Card>
       <FormCard title="How was it fixed?">
         <TextArea

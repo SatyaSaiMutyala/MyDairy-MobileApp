@@ -1,20 +1,18 @@
 import React from 'react';
+import { Provider } from 'react-redux';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { RootNavigator } from './src/navigation';
-import { LabProvider } from './src/state/LabStore';
-import { SessionProvider } from './src/state/Session';
-import { StoreProvider } from './src/state/Store';
+import { ConfirmProvider } from './src/components/ConfirmDialog';
+import { store } from './src/store';
 
 function App() {
   return (
     <SafeAreaProvider>
-      <SessionProvider>
-        <StoreProvider>
-          <LabProvider>
-            <RootNavigator />
-          </LabProvider>
-        </StoreProvider>
-      </SessionProvider>
+      <Provider store={store}>
+        <ConfirmProvider>
+          <RootNavigator />
+        </ConfirmProvider>
+      </Provider>
     </SafeAreaProvider>
   );
 }

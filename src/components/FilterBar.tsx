@@ -1,71 +1,246 @@
-import React, { useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
-import { SlidersHorizontal } from 'lucide-react-native';
-import { colors, hairline, radius, s, vs } from '../theme';
+import React, { useEffect, useRef, useState } from 'react';
+import {
+  Animated,
+  Easing,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  useWindowDimensions,
+  View,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SlidersHorizontal, X } from 'lucide-react-native';
+import {
+  colors,
+  fieldHeight,
+  fonts,
+  fs,
+  hairline,
+  ms,
+  radius,
+  s,
+  vs,
+} from '../theme';
 import { AppText } from './AppText';
-import { Card } from './Card';
+import { Button } from './Button';
+import { IconButton } from './IconButton';
 
-type Props = {
+type ButtonProps = {
   // How many filters are switched on.
   active: number;
+  open: boolean;
+  onPress: () => void;
+};
+
+// The square button that opens the filters. Sits beside a search field and
+// shows how many filters are on.
+export function FilterButton({ active, open, onPress }: ButtonProps) {
+  const on = open || active > 0;
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={active ? `Filters, ${active} on` : 'Filters'}
+      accessibilityState={{ expanded: open }}
+      style={[styles.button, on && styles.buttonOn]}
+    >
+      <SlidersHorizontal
+        size={s(17)}
+        color={on ? colors.tealDeep : colors.inkSoft}
+        strokeWidth={2}
+      />
+      {active ? (
+        <View style={styles.badge}>
+          <AppText style={styles.badgeText}>{active}</AppText>
+        </View>
+      ) : null}
+    </Pressable>
+  );
+}
+
+type Props = {
+  open: boolean;
+  onClose: () => void;
+  active: number;
   onClear: () => void;
+  // Label of the button that closes the drawer, e.g. "Show tasks".
+  doneLabel?: string;
   children: React.ReactNode;
 };
 
-// A "Filters" button that opens a card with the filter fields.
-export function FilterBar({ active, onClear, children }: Props) {
-  const [open, setOpen] = useState(false);
+// The filter fields, in a drawer that slides in from the right edge. The
+// list underneath updates as each filter is changed.
+export function FilterBar({
+  open,
+  onClose,
+  active,
+  onClear,
+  doneLabel = 'Show results',
+  children,
+}: Props) {
+  const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const panel = Math.min(width * 0.86, s(340));
+  const slide = useRef(new Animated.Value(0)).current;
+  // Stays mounted while the drawer slides back out.
+  const [shown, setShown] = useState(open);
+
+  useEffect(() => {
+    if (open) {
+      setShown(true);
+    }
+    Animated.timing(slide, {
+      toValue: open ? 1 : 0,
+      duration: open ? 240 : 190,
+      easing: open ? Easing.out(Easing.cubic) : Easing.in(Easing.cubic),
+      useNativeDriver: true,
+    }).start(({ finished }) => {
+      if (finished && !open) {
+        setShown(false);
+      }
+    });
+  }, [open, slide]);
+
   return (
-    <View style={styles.wrap}>
-      <View style={styles.row}>
+    <Modal
+      transparent
+      statusBarTranslucent
+      visible={shown}
+      animationType="none"
+      onRequestClose={onClose}
+    >
+      <Animated.View style={[styles.veil, { opacity: slide }]}>
         <Pressable
-          onPress={() => setOpen(v => !v)}
-          accessibilityRole="button"
-          accessibilityState={{ expanded: open }}
-          style={[styles.button, (open || active > 0) && styles.buttonOn]}>
-          <SlidersHorizontal
-            size={s(15)}
-            color={open || active ? colors.tealDeep : colors.inkSoft}
-            strokeWidth={2}
+          style={StyleSheet.absoluteFill}
+          onPress={onClose}
+          accessibilityLabel="Close filters"
+        />
+      </Animated.View>
+      <Animated.View
+        style={[
+          styles.drawer,
+          {
+            width: panel,
+            paddingTop: insets.top + vs(6),
+            paddingBottom: insets.bottom + vs(10),
+            transform: [
+              {
+                translateX: slide.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [panel, 0],
+                }),
+              },
+            ],
+          },
+        ]}
+      >
+        <View style={styles.head}>
+          <AppText variant="heading">Filters</AppText>
+          <IconButton
+            icon={X}
+            label="Close filters"
+            iconSize={20}
+            onPress={onClose}
           />
-          <AppText
-            variant="metaStrong"
-            color={open || active ? colors.tealDeep : colors.inkSoft}>
-            {active ? `Filters · ${active}` : 'Filters'}
-          </AppText>
-        </Pressable>
-        {active ? (
-          <Pressable hitSlop={s(10)} onPress={onClear}>
-            <AppText variant="metaStrong" color={colors.teal}>
-              Clear all
-            </AppText>
-          </Pressable>
-        ) : null}
-      </View>
-      {open ? <Card style={styles.card}>{children}</Card> : null}
-    </View>
+        </View>
+        <ScrollView
+          style={styles.body}
+          contentContainerStyle={styles.fields}
+          bounces={false}
+          overScrollMode="never"
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {children}
+        </ScrollView>
+        <View style={styles.foot}>
+          <Button
+            label="Clear all"
+            variant="outline"
+            size="md"
+            disabled={!active}
+            onPress={onClear}
+            style={styles.footButton}
+          />
+          <Button
+            label={doneLabel}
+            size="md"
+            onPress={onClose}
+            style={styles.footButton}
+          />
+        </View>
+      </Animated.View>
+    </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: { marginTop: vs(12) },
-  row: { flexDirection: 'row', alignItems: 'center', gap: s(14) },
   button: {
-    flexDirection: 'row',
+    width: fieldHeight,
+    height: fieldHeight,
     alignItems: 'center',
-    gap: s(6),
-    minHeight: vs(32),
-    paddingHorizontal: s(12),
-    borderRadius: radius.pill,
-    borderWidth: hairline,
+    justifyContent: 'center',
+    borderRadius: radius.md,
+    borderWidth: ms(1.5, 0.2),
     borderColor: colors.line,
     backgroundColor: colors.surface,
   },
   buttonOn: { backgroundColor: colors.tealTint, borderColor: colors.tealLine },
-  card: {
-    marginTop: vs(10),
-    paddingHorizontal: s(14),
-    paddingTop: vs(14),
-    paddingBottom: vs(2),
+  badge: {
+    position: 'absolute',
+    top: -s(5),
+    right: -s(5),
+    minWidth: s(16),
+    height: s(16),
+    paddingHorizontal: s(3),
+    borderRadius: s(8),
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.teal,
   },
+  badgeText: {
+    fontFamily: fonts.semibold,
+    fontSize: fs(10),
+    lineHeight: fs(13),
+    color: colors.white,
+  },
+  veil: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: colors.veil,
+  },
+  drawer: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: colors.ground,
+    borderTopLeftRadius: radius.lg,
+    borderBottomLeftRadius: radius.lg,
+  },
+  head: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingLeft: s(16),
+    paddingRight: s(8),
+    paddingBottom: vs(8),
+    borderBottomWidth: hairline,
+    borderBottomColor: colors.line,
+  },
+  body: { flex: 1 },
+  fields: { paddingHorizontal: s(16), paddingTop: vs(14) },
+  foot: {
+    flexDirection: 'row',
+    gap: s(10),
+    paddingHorizontal: s(16),
+    paddingTop: vs(10),
+    borderTopWidth: hairline,
+    borderTopColor: colors.line,
+  },
+  footButton: { flex: 1 },
 });

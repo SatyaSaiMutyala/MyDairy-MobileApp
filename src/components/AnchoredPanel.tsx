@@ -1,5 +1,13 @@
-import React, { useCallback, useRef, useState } from 'react';
-import { Modal, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  Keyboard,
+  Modal,
+  Platform,
+  Pressable,
+  StyleSheet,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import { colors, hairline, ms, radius, s, shadow, space, vs } from '../theme';
 
 export type Anchor = { x: number; y: number; width: number; height: number };
@@ -33,6 +41,27 @@ type Props = {
   needs?: number;
 };
 
+// How much of the screen the keyboard covers right now.
+function useKeyboardHeight() {
+  const [height, setHeight] = useState(0);
+  useEffect(() => {
+    const ios = Platform.OS === 'ios';
+    const show = Keyboard.addListener(
+      ios ? 'keyboardWillShow' : 'keyboardDidShow',
+      e => setHeight(e.endCoordinates.height),
+    );
+    const hide = Keyboard.addListener(
+      ios ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setHeight(0),
+    );
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
+  return height;
+}
+
 // A panel that opens directly below its field. It only flips above the field
 // when there is no room left underneath.
 export function AnchoredPanel({
@@ -44,6 +73,7 @@ export function AnchoredPanel({
   needs,
 }: Props) {
   const window = useWindowDimensions();
+  const keyboard = useKeyboardHeight();
   if (!anchor) {
     return null;
   }
@@ -56,7 +86,8 @@ export function AnchoredPanel({
     Math.min(anchor.x, window.width - width - space.gutter),
   );
   const below = anchor.y + anchor.height + GAP;
-  const roomBelow = window.height - below - vs(24);
+  // A panel with a text box in it must stay clear of the keyboard.
+  const roomBelow = window.height - keyboard - below - vs(keyboard ? 10 : 24);
   const roomAbove = anchor.y - vs(60);
   const wanted = Math.min(needs ?? vs(200), maxHeight);
   const flip = roomBelow < wanted && roomAbove > roomBelow;
@@ -67,7 +98,8 @@ export function AnchoredPanel({
       statusBarTranslucent
       visible
       animationType="fade"
-      onRequestClose={onClose}>
+      onRequestClose={onClose}
+    >
       <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
       <View
         style={[
@@ -79,7 +111,8 @@ export function AnchoredPanel({
                 maxHeight: Math.min(maxHeight, roomAbove),
               }
             : { top: below, maxHeight: Math.min(maxHeight, roomBelow) },
-        ]}>
+        ]}
+      >
         {children}
       </View>
     </Modal>

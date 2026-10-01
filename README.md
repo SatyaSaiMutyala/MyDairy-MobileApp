@@ -17,16 +17,22 @@ cd ios && bundle install && bundle exec pod install && cd ..
 npm run ios
 ```
 
-## Demo sign-in
+## Backend
 
-The password is `Trust@123` for all three. Any other email or password shows
-the error state.
+Sign in, change password and Lab Readiness already call the Laravel API.
+Everything else still runs on dummy data until its API is wired in.
 
-| Email | Role | What is different |
-| --- | --- | --- |
-| `ravi.kumar@trustlab.in` | User | Sees only the Quality department |
-| `admin@trustlab.in` | Admin | Can switch department and reopen locked submissions |
-| `cmd@trustlab.in` | Super Admin (CMD) | Same as Admin in this app |
+1. Start MySQL in XAMPP and load the database (see the Laravel project).
+2. In `../MyDairy`, run `php artisan serve` (listens on port 8000).
+3. The app reaches it at `http://localhost:8000` on the iPhone simulator and
+   `http://10.0.2.2:8000` on the Android emulator. For a real phone, put the
+   Mac's Wi-Fi address in `LAN_HOST` in `src/config.ts`.
+
+Local test account: `deepak@mytrustlab.com` / `Test@1234` (the password was
+set on the local database copy only).
+
+State and API calls use Redux Toolkit with RTK Query (`src/store`). Every API
+error carries a `message`, and the app shows that message as it is.
 
 ## Layout
 

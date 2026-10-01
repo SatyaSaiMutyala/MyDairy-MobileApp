@@ -1,8 +1,22 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import type { Reopen } from '../state/LabStore';
+import type { Reopen } from '../store/api/labApi';
 import { colors, radius, s, vs } from '../theme';
 import { AppText } from './AppText';
+
+// "2026-09-30T12:31:05+00:00" -> "30 Sep 2026, 12:31"
+const when = (iso: string | null) => {
+  if (!iso) {
+    return '';
+  }
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) {
+    return iso;
+  }
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}, ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
 
 export function ReopenLog({ log }: { log: Reopen[] }) {
   if (!log.length) {
@@ -19,13 +33,13 @@ export function ReopenLog({ log }: { log: Reopen[] }) {
       {log.map((r, i) => (
         <View key={i} style={styles.entry}>
           <AppText variant="metaStrong" color={colors.inkSoft}>
-            {r.by} · {r.at}
+            {r.by ?? 'Unknown'} · {when(r.ts)}
           </AppText>
           <AppText variant="meta" color={colors.inkSoft}>
             {r.reason}
           </AppText>
           <AppText variant="meta" color={colors.inkMuted}>
-            Was signed by {r.signedBy} at {r.signedAt}
+            Was signed by {r.signedBy ?? 'unknown'} at {when(r.signedAt)}
           </AppText>
         </View>
       ))}

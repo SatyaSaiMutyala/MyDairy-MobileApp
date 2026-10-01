@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import {
   ArrowUpRight,
@@ -14,7 +14,7 @@ import {
 import { AppText } from '../components/AppText';
 import { AttachmentList } from '../components/AttachmentList';
 import { Button } from '../components/Button';
-import { EmptyState } from '../components/EmptyState';
+import { useConfirm } from '../components/ConfirmDialog';
 import { EscalationTrail } from '../components/EscalationTrail';
 import { FormCard } from '../components/FormCard';
 import { FormScreen } from '../components/FormScreen';
@@ -22,65 +22,92 @@ import { IconButton } from '../components/IconButton';
 import { IconText } from '../components/IconText';
 import { Notice } from '../components/Notice';
 import { Pill, priorityTone } from '../components/Pill';
-import { locations } from '../data/mock';
-import { currentUser } from '../data/user';
-import { useStore } from '../state/Store';
+import { ShimmerRows } from '../components/Shimmer';
+import { errorMessage } from '../store';
+import {
+  useDeleteTaskMutation,
+  useTaskQuery,
+  useToggleTaskMutation,
+} from '../store/api/tasksApi';
+import { toTask } from '../tasks/model';
 import { describe } from '../utils/recur';
 import { colors, s, vs } from '../theme';
 
 export function TaskDetailScreen() {
   const nav = useNavigation<any>();
   const route = useRoute<any>();
-  const { tasks, toggleTask, deleteTask } = useStore();
-  const task = tasks.find(t => t.id === route.params?.id);
+  const query = useTaskQuery(route.params?.id);
+  const [toggle, toggling] = useToggleTaskMutation();
+  const [destroy, deleting] = useDeleteTaskMutation();
+  const confirm = useConfirm();
 
-  if (!task) {
+  if (!query.data) {
     return (
       <FormScreen title="Task">
-        <EmptyState text="This task is no longer available." />
+        {query.error ? (
+          <Notice
+            tone="error"
+            title={errorMessage(query.error)}
+            style={styles.card}
+          />
+        ) : (
+          <FormCard style={styles.card}>
+            <ShimmerRows rows={3} icon={false} />
+          </FormCard>
+        )}
       </FormScreen>
     );
   }
 
+  const task = toTask(query.data);
   const late = task.overdue && !task.done;
-  const own = task.owner === currentUser.name;
-  const inbox = !!task.from && !own;
-  const out = !!task.escalatedTo;
-  const mine = !inbox && !out;
-  const place = locations.find(l => l.id === task.location)?.label;
+  const inbox = task.box === 'inbox';
+  const out = task.box === 'out';
+  const mine = task.box === 'mine';
+  const own =
+    mine && !task.from && query.data.ownerId === query.data.assigneeId;
+  const place = task.place;
+  const failure = toggling.error ?? deleting.error;
+  const busy = toggling.isLoading || deleting.isLoading;
 
-  const remove = () =>
-    Alert.alert('Delete this task?', 'It cannot be brought back.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: () => {
-          deleteTask(task.id);
-          nav.goBack();
-        },
-      },
-    ]);
+  const remove = async () => {
+    const yes = await confirm({
+      title: 'Delete this task?',
+      text: 'It cannot be brought back.',
+      confirmLabel: 'Delete',
+      tone: 'danger',
+    });
+    if (yes) {
+      destroy(task.id)
+        .unwrap()
+        .then(() => nav.goBack())
+        .catch(() => {});
+    }
+  };
 
   return (
     <FormScreen
       title="Task"
       right={
-        mine ? (
+        task.canEdit || task.canDelete ? (
           <View style={styles.tools}>
-            <IconButton
-              icon={Pencil}
-              label="Edit task"
-              iconSize={20}
-              onPress={() => nav.navigate('TaskForm', { id: task.id })}
-            />
-            <IconButton
-              icon={Trash2}
-              label="Delete task"
-              iconSize={20}
-              color={colors.red}
-              onPress={remove}
-            />
+            {task.canEdit ? (
+              <IconButton
+                icon={Pencil}
+                label="Edit task"
+                iconSize={20}
+                onPress={() => nav.navigate('TaskForm', { id: task.id })}
+              />
+            ) : null}
+            {task.canDelete ? (
+              <IconButton
+                icon={Trash2}
+                label="Delete task"
+                iconSize={20}
+                color={colors.red}
+                onPress={remove}
+              />
+            ) : null}
           </View>
         ) : undefined
       }
@@ -119,14 +146,25 @@ export function TaskDetailScreen() {
               variant={task.done ? 'outline' : 'primary'}
               iconLeft={task.done ? RotateCcw : Check}
               style={styles.action}
-              onPress={() => {
-                toggleTask(task.id);
-                nav.goBack();
-              }}
+              disabled={busy}
+              onPress={() =>
+                toggle(task.id)
+                  .unwrap()
+                  .then(() => nav.goBack())
+                  .catch(() => {})
+              }
             />
           </View>
         )
-      }>
+      }
+    >
+      {failure ? (
+        <Notice
+          tone="error"
+          title={errorMessage(failure)}
+          style={styles.error}
+        />
+      ) : null}
       <FormCard style={styles.card}>
         <View style={styles.tags}>
           <Pill label={task.priority} tone={priorityTone(task.priority)} />
@@ -140,7 +178,11 @@ export function TaskDetailScreen() {
           {task.title}
         </AppText>
         {task.description ? (
-          <AppText variant="bodyRegular" color={colors.inkSoft} style={styles.text}>
+          <AppText
+            variant="bodyRegular"
+            color={colors.inkSoft}
+            style={styles.text}
+          >
             {task.description}
           </AppText>
         ) : null}
@@ -167,7 +209,7 @@ export function TaskDetailScreen() {
             Last occurrence ticked {task.lastDone}
           </AppText>
         ) : null}
-        {task.tags?.length ? (
+        {task.tags.length ? (
           <View style={[styles.tags, styles.text]}>
             {task.tags.map(tag => (
               <Pill key={tag} label={`#${tag}`} tone="low" />
@@ -176,8 +218,11 @@ export function TaskDetailScreen() {
         ) : null}
       </FormCard>
 
-      {task.attachments?.length ? (
-        <FormCard title={`Attachments · ${task.attachments.length}`} style={styles.card}>
+      {task.attachments.length ? (
+        <FormCard
+          title={`Attachments · ${task.attachments.length}`}
+          style={styles.card}
+        >
           <AttachmentList files={task.attachments} />
         </FormCard>
       ) : null}
@@ -189,6 +234,7 @@ export function TaskDetailScreen() {
 
 const styles = StyleSheet.create({
   tools: { flexDirection: 'row' },
+  error: { marginTop: vs(10) },
   actions: { flexDirection: 'row', gap: s(12) },
   action: { flex: 1 },
   card: { paddingBottom: vs(14) },
