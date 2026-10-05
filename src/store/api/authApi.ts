@@ -14,11 +14,18 @@ export type ApiUser = {
   role: 'user' | 'admin' | 'super_admin';
   role_label: string;
   sees_all: boolean;
+  // Lab Readiness is shown only to people who work with the lab.
+  lab: boolean;
   active: boolean;
 };
 
 type LoginBody = { email: string; password: string; device_name?: string };
-type LoginReply = { ok: true; token: string; token_type: string; user: ApiUser };
+type LoginReply = {
+  ok: true;
+  token: string;
+  token_type: string;
+  user: ApiUser;
+};
 type PasswordBody = {
   current_password: string;
   password: string;

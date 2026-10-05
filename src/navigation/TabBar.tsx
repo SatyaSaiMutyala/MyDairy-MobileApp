@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import {
   Calendar,
+  ClipboardPen,
   FlaskConical,
   House,
   LayoutGrid,
@@ -18,6 +19,7 @@ const icons: Record<string, LucideIcon> = {
   Tasks: SquareCheck,
   Diary: Calendar,
   Lab: FlaskConical,
+  Activity: ClipboardPen,
   More: LayoutGrid,
 };
 

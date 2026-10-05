@@ -33,6 +33,7 @@ import {
 import { addDays, realToday, shortDate } from '../utils/dates';
 import { useDebounced } from '../utils/useDebounced';
 import { colors, hairline, s, vs } from '../theme';
+import { useFresh } from '../store/useFresh';
 
 type View3 = 'open' | 'resolved' | 'history';
 
@@ -57,7 +58,11 @@ const blank = { dept: 'all', level: 'all', date: '', escalated: false };
 
 const ALL_DEPARTMENTS = {};
 
+// What this screen shows; fetched again when it comes back into view.
+const FRESH = ['Alerts'] as const;
+
 export function AlertsScreen() {
+  const fresh = useFresh(FRESH);
   const nav = useNavigation<any>();
   const everyone = seesAllDepartments();
   const today = realToday();
@@ -75,7 +80,9 @@ export function AlertsScreen() {
     (f.escalated ? 1 : 0) +
     (view === 'history' && f.date ? 1 : 0);
 
-  const departments = useDepartmentsQuery(ALL_DEPARTMENTS, { skip: !everyone }).data;
+  const departments = useDepartmentsQuery(ALL_DEPARTMENTS, {
+    skip: !everyone,
+  }).data;
   const deptOptions = useMemo(
     () => [
       { id: 'all', label: 'All departments' },
@@ -156,6 +163,7 @@ export function AlertsScreen() {
   return (
     <FormScreen
       title="Alerts"
+      onRefresh={fresh}
       onEndReached={list.loadMore}
       footer={
         <Button

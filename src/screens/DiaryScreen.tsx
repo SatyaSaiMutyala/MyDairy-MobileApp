@@ -37,12 +37,17 @@ import {
   weekOf,
 } from '../utils/dates';
 import { colors, s, space, vs } from '../theme';
+import { useFresh } from '../store/useFresh';
 
 type View_ = 'day' | 'week' | 'month';
 
 const PENDING = { status: 'pending' } as const;
 
+// What this screen shows; fetched again when it comes back into view.
+const FRESH = ['Diary', 'DiaryInvites'] as const;
+
 export function DiaryScreen() {
+  const fresh = useFresh(FRESH);
   const nav = useNavigation<any>();
   const TODAY_ISO = realToday();
   const [view, setView] = useState<View_>('day');
@@ -153,7 +158,11 @@ export function DiaryScreen() {
         </View>
       </ScreenHeader>
 
-      <ScreenScroll bottomGap={90} onEndReached={invites.loadMore}>
+      <ScreenScroll
+        bottomGap={90}
+        onEndReached={invites.loadMore}
+        onRefresh={fresh}
+      >
         {view === 'month' ? (
           <View style={styles.month}>
             <MonthGrid

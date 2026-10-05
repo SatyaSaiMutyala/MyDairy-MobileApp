@@ -10,7 +10,11 @@ import { SignerCard } from '../components/SignerCard';
 import { TextArea } from '../components/TextArea';
 import { phaseName } from '../lab/model';
 import { errorMessage, fieldErrors } from '../store';
-import { Target, useLabReopenMutation, useLabStateQuery } from '../store/api/labApi';
+import {
+  Target,
+  useLabReopenMutation,
+  useLabStateQuery,
+} from '../store/api/labApi';
 import { longDate } from '../utils/dates';
 import { vs } from '../theme';
 
@@ -41,7 +45,8 @@ export function LabReopenScreen() {
           disabled={!reason.trim() || call.isLoading}
           onPress={submit}
         />
-      }>
+      }
+    >
       <Notice
         tone="error"
         title="Reopening a signed record is itself a deviation"
@@ -49,12 +54,17 @@ export function LabReopenScreen() {
         style={styles.notice}
       />
       {call.error && !fieldErrors(call.error).reason ? (
-        <Notice tone="error" title={errorMessage(call.error)} style={styles.notice} />
+        <Notice
+          tone="error"
+          title={errorMessage(call.error)}
+          style={styles.notice}
+        />
       ) : null}
       <FormCard
-        title={`${state.data?.unit.name ?? ''} · ${phaseName(target.phase)} · ${longDate(
-          target.date,
-        )}`}>
+        title={`${state.data?.unit.name ?? ''} · ${phaseName(
+          target.phase,
+        )} · ${longDate(target.date)}`}
+      >
         {run?.signed ? (
           <SignerCard
             name={run.signedBy ?? ''}

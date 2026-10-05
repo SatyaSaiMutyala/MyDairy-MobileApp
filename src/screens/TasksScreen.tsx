@@ -35,6 +35,7 @@ import { useTaskList } from '../tasks/useTaskList';
 import { longDate, realToday } from '../utils/dates';
 import { useDebounced } from '../utils/useDebounced';
 import { colors, s, shadow, vs } from '../theme';
+import { useFresh } from '../store/useFresh';
 
 const emptyText: Record<TaskStatus, string> = {
   all: 'No tasks yet.',
@@ -69,7 +70,11 @@ const blank = {
   hard: false,
 };
 
+// What this screen shows; fetched again when it comes back into view.
+const FRESH = ['Tasks'] as const;
+
 export function TasksScreen() {
+  const fresh = useFresh(FRESH);
   const nav = useNavigation<any>();
   const everyone = seesAllDepartments();
 
@@ -195,6 +200,7 @@ export function TasksScreen() {
 
       <ScreenScroll
         contentContainerStyle={styles.scroll}
+        onRefresh={fresh}
         onEndReached={list.loadMore}
       >
         <View style={styles.tools}>

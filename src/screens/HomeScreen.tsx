@@ -7,6 +7,7 @@ import {
   Calendar,
   ClipboardCheck,
   Moon,
+  NotebookPen,
   Plus,
   Sun,
   TriangleAlert,
@@ -32,7 +33,8 @@ import { TealHeader } from '../components/TealHeader';
 import { currentUser } from '../data/user';
 import { dueBy, Phase } from '../lab/model';
 import { useLabUnit } from '../lab/useLabUnit';
-import { errorMessage } from '../store';
+import { errorMessage, useAppSelector } from '../store';
+import { useActivityDayQuery } from '../store/api/activityApi';
 import { useLabStateQuery } from '../store/api/labApi';
 import { todayIso } from '../store/slices/labSlice';
 import { useNextMeeting } from '../diary/useDiary';
@@ -41,6 +43,7 @@ import { useTaskList } from '../tasks/useTaskList';
 import { useAlertList } from '../alerts/useAlertList';
 import { useUnreadCountQuery } from '../store/api/notificationsApi';
 import { fullDate, greeting } from '../utils/dates';
+import { useFresh } from '../store/useFresh';
 import {
   colors,
   fonts,
@@ -56,17 +59,36 @@ import {
 // Today's open alerts.
 const HOME_ALERTS = { status: 'open' } as const;
 
+// What this screen shows; fetched again when it comes back into view.
+const FRESH = [
+  'Tasks',
+  'Alerts',
+  'LabState',
+  'Activity',
+  'Diary',
+  'Notices',
+] as const;
+
 export function HomeScreen() {
+  const fresh = useFresh(FRESH);
   const nav = useNavigation<any>();
+  // Older saved sign-ins have no flag yet: show the lab until the next sign-in.
+  const lab = useAppSelector(st => st.session.user?.lab ?? true);
   const { unit } = useLabUnit();
+  // Everyone else signs off a daily activity log; admin and CMD have both.
+  const activity = useAppSelector(
+    st => !(st.session.user?.lab ?? true) || !!st.session.user?.sees_all,
+  );
+  const activityDay = useActivityDayQuery({}, { skip: !activity });
+  const activityState = activityDay.data?.state;
   const todayDate = todayIso();
   const openingState = useLabStateQuery(
     { unit: unit?.key ?? '', date: todayDate, phase: 'opening' },
-    { skip: !unit },
+    { skip: !unit || !lab },
   );
   const closingState = useLabStateQuery(
     { unit: unit?.key ?? '', date: todayDate, phase: 'closing' },
-    { skip: !unit },
+    { skip: !unit || !lab },
   );
 
   const shift = (phase: Phase) => {
@@ -120,7 +142,7 @@ export function HomeScreen() {
   return (
     <View style={styles.root}>
       <StatusBarShade />
-      <ScreenScroll padded={false}>
+      <ScreenScroll padded={false} onRefresh={fresh}>
         <TealHeader arcHeight={vs(330)} topGap={10} style={styles.header}>
           <View style={styles.topRow}>
             <IconTile size={40} bg={colors.white}>
@@ -182,59 +204,92 @@ export function HomeScreen() {
             style={styles.date}
           />
 
-          <AppText
-            variant="eyebrow"
-            color={colors.onTealSoft}
-            style={styles.headEyebrow}
-          >
-            LAB CHECKLISTS TODAY
-          </AppText>
-          <View style={styles.shiftRow}>
-            <ShiftCard
-              icon={Sun}
-              name="Opening"
-              state={opening.state}
-              detail={opening.detail}
-              signed={opening.signed}
-              onPress={() => nav.navigate('Lab', { shift: 'opening' })}
-            />
-            <ShiftCard
-              icon={Moon}
-              name="Closing"
-              state={closing.state}
-              detail={closing.detail}
-              signed={closing.signed}
-              onPress={() => nav.navigate('Lab', { shift: 'closing' })}
-            />
-          </View>
+          {lab ? (
+            <>
+              <AppText
+                variant="eyebrow"
+                color={colors.onTealSoft}
+                style={styles.headEyebrow}
+              >
+                LAB CHECKLISTS TODAY
+              </AppText>
+              <View style={styles.shiftRow}>
+                <ShiftCard
+                  icon={Sun}
+                  name="Opening"
+                  state={opening.state}
+                  detail={opening.detail}
+                  signed={opening.signed}
+                  onPress={() => nav.navigate('Lab', { shift: 'opening' })}
+                />
+                <ShiftCard
+                  icon={Moon}
+                  name="Closing"
+                  state={closing.state}
+                  detail={closing.detail}
+                  signed={closing.signed}
+                  onPress={() => nav.navigate('Lab', { shift: 'closing' })}
+                />
+              </View>
+            </>
+          ) : null}
         </TealHeader>
 
         <View style={styles.content}>
-          <Button
-            label={
-              opening.signed && closing.signed
-                ? 'View lab checklist'
-                : opening.state === 'Not started'
-                ? 'Start lab checklist'
-                : 'Continue lab checklist'
-            }
-            spread
-            iconRight={ArrowRight}
-            onPress={() =>
-              nav.navigate('Lab', {
-                shift: opening.signed ? 'closing' : 'opening',
-              })
-            }
-            leading={
-              <IconTile size={32} bg={colors.yellowInk}>
-                <ClipboardCheck
-                  size={s(17)}
-                  color={colors.yellow}
-                  strokeWidth={1.9}
-                />
-              </IconTile>
-            }
-          />
+          {lab ? (
+            <Button
+              label={
+                opening.signed && closing.signed
+                  ? 'View lab checklist'
+                  : opening.state === 'Not started'
+                  ? 'Start lab checklist'
+                  : 'Continue lab checklist'
+              }
+              spread
+              iconRight={ArrowRight}
+              onPress={() =>
+                nav.navigate('Lab', {
+                  shift: opening.signed ? 'closing' : 'opening',
+                })
+              }
+              leading={
+                <IconTile size={32} bg={colors.yellowInk}>
+                  <ClipboardCheck
+                    size={s(17)}
+                    color={colors.yellow}
+                    strokeWidth={1.9}
+                  />
+                </IconTile>
+              }
+            />
+          ) : null}
+
+          {activity ? (
+            <Button
+              label={
+                activityState === 'signed' || activityState === 'late'
+                  ? 'Activity log signed off'
+                  : activityState === 'overdue'
+                  ? 'Activity log overdue · sign off now'
+                  : activityDay.data?.log
+                  ? "Continue today's activity log"
+                  : "Write today's activity log"
+              }
+              spread
+              iconRight={ArrowRight}
+              onPress={() => nav.navigate('Activity')}
+              leading={
+                <IconTile size={32} bg={colors.yellowInk}>
+                  <NotebookPen
+                    size={s(17)}
+                    color={colors.yellow}
+                    strokeWidth={1.9}
+                  />
+                </IconTile>
+              }
+              style={lab ? styles.second : undefined}
+            />
+          ) : null}
 
           <View style={styles.pair}>
             <Button
@@ -362,6 +417,7 @@ const styles = StyleSheet.create({
   shiftRow: { flexDirection: 'row', gap: s(10) },
   content: { paddingHorizontal: space.gutter, paddingTop: vs(14) },
   pair: { flexDirection: 'row', gap: s(12), marginTop: vs(10) },
+  second: { marginTop: vs(10) },
   pairItem: { flex: 1 },
   glance: { flexDirection: 'row' },
   glanceRule: { width: hairline, backgroundColor: colors.line },

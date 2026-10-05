@@ -46,7 +46,7 @@ export function EscalateTaskScreen() {
         note: note.trim() || undefined,
         expected_resolution_by: by || undefined,
       }).unwrap();
-      nav.navigate('Tabs', { screen: 'Tasks' });
+      nav.popTo('Tabs', { screen: 'Tasks' });
     } catch {
       // The API's message is shown at the top.
     }

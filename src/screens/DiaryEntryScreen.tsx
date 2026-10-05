@@ -22,6 +22,7 @@ import {
 } from '../store/api/diaryApi';
 import { longDate } from '../utils/dates';
 import { colors, s, vs } from '../theme';
+import { useFresh } from '../store/useFresh';
 
 const replyText: Record<InviteResponse, string> = {
   pending: 'You have not replied yet',
@@ -30,7 +31,11 @@ const replyText: Record<InviteResponse, string> = {
   declined: 'You declined this invitation',
 };
 
+// What this screen shows; fetched again when it comes back into view.
+const FRESH = ['DiaryEntry'] as const;
+
 export function DiaryEntryScreen() {
+  const fresh = useFresh(FRESH);
   const nav = useNavigation<any>();
   const id: number = useRoute<any>().params?.id;
   const query = useDiaryEntryQuery(id);
@@ -92,6 +97,7 @@ export function DiaryEntryScreen() {
   return (
     <FormScreen
       title={invited ? 'Invitation' : 'Entry'}
+      onRefresh={fresh}
       footer={
         invited ? (
           <View style={styles.actions}>

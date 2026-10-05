@@ -88,7 +88,7 @@ function EntryForm({ editing, day }: { editing?: DiaryLine; day: string }) {
           invitees: people.map(p => Number(p.id)),
         },
       }).unwrap();
-      nav.navigate('Tabs', { screen: 'Diary' });
+      nav.popTo('Tabs', { screen: 'Diary' });
     } catch {
       // The API's message is shown at the top of the form.
     }

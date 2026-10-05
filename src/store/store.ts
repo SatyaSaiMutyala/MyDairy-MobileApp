@@ -1,4 +1,6 @@
+import { AppState } from 'react-native';
 import { configureStore } from '@reduxjs/toolkit';
+import { setupListeners } from '@reduxjs/toolkit/query';
 import { TypedUseSelectorHook, useDispatch, useSelector } from 'react-redux';
 import { setCurrentUser, profileFrom } from '../data/user';
 import { baseApi } from './api/baseApi';
@@ -13,6 +15,15 @@ export const store = configureStore({
     [baseApi.reducerPath]: baseApi.reducer,
   },
   middleware: getDefault => getDefault().concat(baseApi.middleware),
+});
+
+// Tell the API cache when the app comes back to the front, so what is on
+// screen is fetched again (refetchOnFocus in baseApi).
+setupListeners(store.dispatch, (dispatch, actions) => {
+  const sub = AppState.addEventListener('change', state => {
+    dispatch(state === 'active' ? actions.onFocus() : actions.onFocusLost());
+  });
+  return () => sub.remove();
 });
 
 // Keep the phone's storage and the legacy `currentUser` object in step with

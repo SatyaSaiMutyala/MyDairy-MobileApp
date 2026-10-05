@@ -8,6 +8,9 @@ import {
   LogOut,
   MapPin,
   Bell,
+  Users,
+  MessageCircle,
+  FolderKanban,
   TriangleAlert,
 } from 'lucide-react-native';
 import { AppText } from '../components/AppText';
@@ -27,6 +30,7 @@ import { useLogoutMutation } from '../store/api/authApi';
 import { useForgetDeviceMutation } from '../store/api/notificationsApi';
 import { signedOut } from '../store/slices/sessionSlice';
 import { colors, radius, s, vs } from '../theme';
+import { useFresh } from '../store/useFresh';
 
 type Link = MenuItem & { to: string };
 
@@ -61,6 +65,24 @@ const work: Link[] = [
     title: 'Visit observations',
     detail: 'Notes and photos from site visits',
   },
+  {
+    to: 'Meetings',
+    icon: Users,
+    title: 'My meetings',
+    detail: 'Plan, take minutes, follow up actions',
+  },
+  {
+    to: 'Discussions',
+    icon: MessageCircle,
+    title: 'Discussion logs',
+    detail: 'Calls, chats and corridor talks, in one line',
+  },
+  {
+    to: 'Projects',
+    icon: FolderKanban,
+    title: 'Projects',
+    detail: 'Milestones, owners and progress',
+  },
 ];
 
 const account: Link[] = [
@@ -80,7 +102,11 @@ const signOutItem: MenuItem = {
 
 const OPEN_ALERTS = { status: 'open' } as const;
 
+// What this screen shows; fetched again when it comes back into view.
+const FRESH = ['Alerts', 'Notices'] as const;
+
 export function MoreScreen() {
+  const fresh = useFresh(FRESH);
   const nav = useNavigation<any>();
   const dispatch = useAppDispatch();
   const [logout] = useLogoutMutation();
@@ -90,7 +116,7 @@ export function MoreScreen() {
   // for the server: a dead token is dropped there anyway.
   const signOut = async () => {
     const yes = await confirm({
-      title: 'Sign out of MyDiary?',
+      title: 'Sign out of Trust Diary?',
       text: 'You will need your email and password to sign in again.',
       confirmLabel: 'Sign out',
       cancelLabel: 'Stay',
@@ -130,7 +156,7 @@ export function MoreScreen() {
         </View>
       </ScreenHeader>
 
-      <ScreenScroll>
+      <ScreenScroll onRefresh={fresh}>
         <Eyebrow label="Daily work" />
         <CardList inset={52}>
           {work.map(item => (
@@ -157,7 +183,7 @@ export function MoreScreen() {
         </CardList>
 
         <AppText variant="meta" color={colors.inkFaint} style={styles.version}>
-          MyDiary 0.1 · TrustLab Diagnostics Pvt. Ltd.
+          Trust Diary 0.1 · TrustLab Diagnostics Pvt. Ltd.
         </AppText>
       </ScreenScroll>
     </View>

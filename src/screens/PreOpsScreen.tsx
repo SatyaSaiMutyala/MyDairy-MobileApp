@@ -34,6 +34,7 @@ import {
 import { pagesOf } from '../store/pages';
 import { addDays, longDate } from '../utils/dates';
 import { colors, s, vs } from '../theme';
+import { useFresh } from '../store/useFresh';
 
 const priority: Record<string, { label: string; tone: PillTone }> = {
   critical: { label: 'Critical', tone: 'critical' },
@@ -47,8 +48,13 @@ const dotOf = (pct: number) =>
 // Ticks are saved as a draft a moment after the last change.
 const AUTOSAVE_MS = 700;
 
+const FRESH = ['PreOps', 'PreOpsHistory'] as const;
+
 export function PreOpsScreen() {
-  const { dept, setDept, canSwitch } = useDepartment(useRoute<any>().params?.dept);
+  const fresh = useFresh(FRESH);
+  const { dept, setDept, canSwitch } = useDepartment(
+    useRoute<any>().params?.dept,
+  );
   // A department login never names a department: the server uses its own.
   const arg = useMemo(
     () => (canSwitch ? { department: dept } : {}),
@@ -93,6 +99,7 @@ export function PreOpsScreen() {
       data={query.currentData}
       arg={arg}
       picker={picker}
+      onRefresh={fresh}
     />
   );
 }
@@ -101,9 +108,10 @@ type FormProps = {
   data: PreOpsState;
   arg: { department?: string };
   picker: React.ReactNode;
+  onRefresh: () => Promise<unknown>;
 };
 
-function PreOpsForm({ data, arg, picker }: FormProps) {
+function PreOpsForm({ data, arg, picker, onRefresh }: FormProps) {
   const confirm = useConfirm();
   const [save, saving] = useSavePreOpsMutation();
   const [reopenCall, reopening] = useReopenPreOpsMutation();
@@ -175,6 +183,7 @@ function PreOpsForm({ data, arg, picker }: FormProps) {
   return (
     <FormScreen
       title="Pre-operations"
+      onRefresh={onRefresh}
       onEndReached={history.loadMore}
       footer={
         locked ? (

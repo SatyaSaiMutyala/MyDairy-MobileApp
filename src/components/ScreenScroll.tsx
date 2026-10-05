@@ -1,12 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   NativeScrollEvent,
   NativeSyntheticEvent,
+  RefreshControl,
   ScrollView,
   ScrollViewProps,
   StyleSheet,
 } from 'react-native';
-import { space, vs } from '../theme';
+import { colors, space, vs } from '../theme';
 
 type Props = ScrollViewProps & {
   // Side padding. Turn off when a full-width header sits inside the scroll.
@@ -15,6 +16,8 @@ type Props = ScrollViewProps & {
   // Called when the person scrolls close to the bottom. Used to fetch the
   // next page of a list.
   onEndReached?: () => void;
+  // Pull down to fetch again. Resolves when the fresh data has arrived.
+  onRefresh?: () => Promise<unknown> | void;
 };
 
 // How close to the bottom counts as "the end".
@@ -26,14 +29,27 @@ export function ScreenScroll({
   bottomGap = 28,
   contentContainerStyle,
   onEndReached,
+  onRefresh,
   onScroll,
   ...rest
 }: Props) {
+  const [refreshing, setRefreshing] = useState(false);
+  const pulled = async () => {
+    setRefreshing(true);
+    try {
+      await onRefresh?.();
+    } finally {
+      setRefreshing(false);
+    }
+  };
   const scrolled = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     onScroll?.(e);
     if (onEndReached) {
       const { contentOffset, layoutMeasurement, contentSize } = e.nativeEvent;
-      if (contentOffset.y + layoutMeasurement.height >= contentSize.height - END_ZONE) {
+      if (
+        contentOffset.y + layoutMeasurement.height >=
+        contentSize.height - END_ZONE
+      ) {
         onEndReached();
       }
     }
@@ -48,6 +64,16 @@ export function ScreenScroll({
       overScrollMode="never"
       scrollEventThrottle={onEndReached ? 120 : undefined}
       onScroll={onEndReached || onScroll ? scrolled : undefined}
+      refreshControl={
+        onRefresh ? (
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={pulled}
+            tintColor={colors.teal}
+            colors={[colors.teal]}
+          />
+        ) : undefined
+      }
       {...rest}
       contentContainerStyle={[
         padded && styles.padded,

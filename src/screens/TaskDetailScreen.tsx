@@ -32,8 +32,13 @@ import {
 import { toTask } from '../tasks/model';
 import { describe } from '../utils/recur';
 import { colors, s, vs } from '../theme';
+import { useFresh } from '../store/useFresh';
+
+// What this screen shows; fetched again when it comes back into view.
+const FRESH = ['Task'] as const;
 
 export function TaskDetailScreen() {
+  const fresh = useFresh(FRESH);
   const nav = useNavigation<any>();
   const route = useRoute<any>();
   const query = useTaskQuery(route.params?.id);
@@ -88,6 +93,7 @@ export function TaskDetailScreen() {
   return (
     <FormScreen
       title="Task"
+      onRefresh={fresh}
       right={
         task.canEdit || task.canDelete ? (
           <View style={styles.tools}>

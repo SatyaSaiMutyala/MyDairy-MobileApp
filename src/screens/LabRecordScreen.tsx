@@ -21,9 +21,14 @@ import { errorMessage } from '../store';
 import { useLabRecordQuery } from '../store/api/labApi';
 import { longDate } from '../utils/dates';
 import { colors, hairline, radius, s, vs } from '../theme';
+import { useFresh } from '../store/useFresh';
 
 // Read-only view of one record, opened from History.
+// What this screen shows; fetched again when it comes back into view.
+const FRESH = ['LabRecord'] as const;
+
 export function LabRecordScreen() {
+  const fresh = useFresh(FRESH);
   const id: number = useRoute<any>().params?.id;
   const query = useLabRecordQuery(id);
   const record = query.data;
@@ -60,7 +65,10 @@ export function LabRecordScreen() {
   const opening = record.phase === 'opening';
 
   return (
-    <FormScreen title={`${opening ? 'Opening' : 'Closing'} record`}>
+    <FormScreen
+      title={`${opening ? 'Opening' : 'Closing'} record`}
+      onRefresh={fresh}
+    >
       <FormCard title={`${record.unitName} · ${longDate(record.date)}`}>
         <View style={styles.stats}>
           <Stat

@@ -19,13 +19,18 @@ import {
 } from '../store/api/notificationsApi';
 import { pagesOf } from '../store/pages';
 import { colors, s, vs } from '../theme';
+import { useFresh } from '../store/useFresh';
 
 type Show = 'all' | 'unread';
 
 const ALL = {};
 const UNREAD = { unread: 1 } as const;
 
+// What this screen shows; fetched again when it comes back into view.
+const FRESH = ['Notices'] as const;
+
 export function NotificationsScreen() {
+  const fresh = useFresh(FRESH);
   const nav = useNavigation<any>();
   const [show, setShow] = useState<Show>('all');
   const query = useNotificationsInfiniteQuery(show === 'unread' ? UNREAD : ALL);
@@ -56,8 +61,19 @@ export function NotificationsScreen() {
         return nav.navigate('Alerts');
       case 'preops':
         return nav.navigate('PreOps', { dept: String(link.id) });
+      case 'meeting':
+        return nav.navigate('MeetingDetail', { id: Number(link.id) });
+      case 'discussion':
+        return nav.navigate('DiscussionDetail', { id: Number(link.id) });
+      case 'project':
+        return nav.navigate('ProjectDetail', { id: Number(link.id) });
       case 'report':
         return nav.navigate('DailyReport', { dept: String(link.id) });
+      case 'activity':
+        return nav.navigate('Tabs', {
+          screen: 'Activity',
+          params: { date: String(link.id) },
+        });
     }
   };
 
@@ -67,6 +83,7 @@ export function NotificationsScreen() {
   return (
     <FormScreen
       title="Notifications"
+      onRefresh={fresh}
       onEndReached={list.loadMore}
       right={
         unread ? (

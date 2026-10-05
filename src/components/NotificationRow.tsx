@@ -2,6 +2,7 @@ import React from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import {
   Bell,
+  ClipboardPen,
   CalendarDays,
   ClipboardCheck,
   ClipboardList,
@@ -9,6 +10,9 @@ import {
   ListChecks,
   MapPinned,
   TriangleAlert,
+  Users,
+  MessageCircle,
+  FolderKanban,
 } from 'lucide-react-native';
 import type { LucideIcon } from 'lucide-react-native';
 import type { ApiNotice, NoticeLink } from '../store/api/notificationsApi';
@@ -25,6 +29,10 @@ const icons: Record<NoticeLink['type'], LucideIcon> = {
   lab: FlaskConical,
   preops: ClipboardList,
   report: ClipboardCheck,
+  meeting: Users,
+  discussion: MessageCircle,
+  project: FolderKanban,
+  activity: ClipboardPen,
 };
 
 type Props = { notice: ApiNotice; onPress: () => void };

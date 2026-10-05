@@ -4,7 +4,18 @@ import type { PageMeta } from './labApi';
 // Shapes exactly as the API sends them.
 
 export type NoticeLink = {
-  type: 'task' | 'alert' | 'diary' | 'visit' | 'lab' | 'preops' | 'report';
+  type:
+    | 'task'
+    | 'alert'
+    | 'diary'
+    | 'visit'
+    | 'lab'
+    | 'preops'
+    | 'report'
+    | 'meeting'
+    | 'discussion'
+    | 'project'
+    | 'activity';
   id: number | string;
 };
 

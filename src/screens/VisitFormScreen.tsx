@@ -167,7 +167,7 @@ function VisitForm({ was }: { was?: Visit }) {
       }
     }
     try {
-      await save({
+      const saved = await save({
         id: was?.id,
         form: visitForm({
           title,
@@ -207,7 +207,12 @@ function VisitForm({ was }: { was?: Visit }) {
           removedPhotoIds: removedPhotos,
         }),
       }).unwrap();
-      nav.navigate('Visits');
+      // Editing: back to the record. Creating: open it, with the list behind it.
+      if (was) {
+        nav.goBack();
+      } else {
+        nav.replace('VisitDetail', { id: saved.id });
+      }
     } catch {
       // The API's message is shown at the top of the form.
     }

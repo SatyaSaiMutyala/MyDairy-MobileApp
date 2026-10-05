@@ -35,6 +35,7 @@ import {
 import { pagesOf } from '../store/pages';
 import { addDays, longDate } from '../utils/dates';
 import { colors, s, vs } from '../theme';
+import { useFresh } from '../store/useFresh';
 
 const tone = {
   good: colors.greenInk,
@@ -42,8 +43,13 @@ const tone = {
   red: colors.redInk,
 };
 
+const FRESH = ['Report', 'ReportHistory'] as const;
+
 export function DailyReportScreen() {
-  const { dept, setDept, canSwitch } = useDepartment(useRoute<any>().params?.dept);
+  const fresh = useFresh(FRESH);
+  const { dept, setDept, canSwitch } = useDepartment(
+    useRoute<any>().params?.dept,
+  );
   // A department login never names a department: the server uses its own.
   const arg = useMemo(
     () => (canSwitch ? { department: dept } : {}),
@@ -88,6 +94,7 @@ export function DailyReportScreen() {
       data={query.currentData}
       arg={arg}
       picker={picker}
+      onRefresh={fresh}
     />
   );
 }
@@ -96,9 +103,10 @@ type FormProps = {
   data: ReportState;
   arg: { department?: string };
   picker: React.ReactNode;
+  onRefresh: () => Promise<unknown>;
 };
 
-function ReportForm({ data, arg, picker }: FormProps) {
+function ReportForm({ data, arg, picker, onRefresh }: FormProps) {
   const confirm = useConfirm();
   const [save, saving] = useSaveDailyReportMutation();
   const [reopenCall, reopening] = useReopenDailyReportMutation();
@@ -198,6 +206,7 @@ function ReportForm({ data, arg, picker }: FormProps) {
   return (
     <FormScreen
       title="Daily report"
+      onRefresh={onRefresh}
       onEndReached={history.loadMore}
       footer={
         locked ? (
@@ -225,21 +234,33 @@ function ReportForm({ data, arg, picker }: FormProps) {
             ) : null}
           </>
         ) : (
-          <View style={styles.actions}>
-            <Button
-              label={drafting ? 'Saving…' : 'Save draft'}
-              variant="outline"
-              style={styles.action}
-              disabled={saving.isLoading}
-              onPress={() => send(false)}
-            />
-            <Button
-              label={submitting ? 'Submitting…' : 'Submit'}
-              style={styles.action}
-              disabled={filled.length === 0 || saving.isLoading}
-              onPress={submit}
-            />
-          </View>
+          <>
+            {filled.length === 0 ? (
+              <AppText
+                variant="meta"
+                color={colors.inkMuted}
+                style={styles.note}
+              >
+                Type at least one Actual value to submit. A status alone is not
+                a figure.
+              </AppText>
+            ) : null}
+            <View style={styles.actions}>
+              <Button
+                label={drafting ? 'Saving…' : 'Save draft'}
+                variant="outline"
+                style={styles.action}
+                disabled={saving.isLoading}
+                onPress={() => send(false)}
+              />
+              <Button
+                label={submitting ? 'Submitting…' : 'Submit'}
+                style={styles.action}
+                disabled={filled.length === 0 || saving.isLoading}
+                onPress={submit}
+              />
+            </View>
+          </>
         )
       }
     >
@@ -430,6 +451,7 @@ const styles = StyleSheet.create({
     marginBottom: vs(10),
   },
   foldText: { flex: 1 },
+  note: { marginBottom: vs(8) },
   actions: { flexDirection: 'row', gap: s(12) },
   action: { flex: 1 },
   reopen: { marginTop: vs(10) },

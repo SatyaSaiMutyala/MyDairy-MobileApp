@@ -40,7 +40,7 @@ export function ResolveTaskScreen() {
         resolution_action: action,
         resolution_note: note.trim(),
       }).unwrap();
-      nav.navigate('Tabs', { screen: 'Tasks' });
+      nav.popTo('Tabs', { screen: 'Tasks' });
     } catch {
       // The API's message is shown at the top.
     }

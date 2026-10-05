@@ -13,17 +13,34 @@ type Props = {
   right?: React.ReactNode;
   // For paged lists: called when the person scrolls near the bottom.
   onEndReached?: () => void;
+  onRefresh?: () => Promise<unknown> | void;
 };
 
 // Standard inner screen: top bar, scrolling body, action pinned at the bottom.
-export function FormScreen({ title, children, footer, right, onEndReached }: Props) {
+export function FormScreen({
+  title,
+  children,
+  footer,
+  right,
+  onEndReached,
+  onRefresh,
+}: Props) {
   const nav = useNavigation();
   return (
     <KeyboardAvoidingView
       style={styles.root}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <TopBar title={title} right={right} onBack={() => nav.canGoBack() && nav.goBack()} />
-      <ScreenScroll bottomGap={24} onEndReached={onEndReached}>
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <TopBar
+        title={title}
+        right={right}
+        onBack={() => nav.canGoBack() && nav.goBack()}
+      />
+      <ScreenScroll
+        bottomGap={24}
+        onEndReached={onEndReached}
+        onRefresh={onRefresh}
+      >
         {children}
       </ScreenScroll>
       {footer ? <FooterBar>{footer}</FooterBar> : null}

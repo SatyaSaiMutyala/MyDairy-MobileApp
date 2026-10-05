@@ -60,10 +60,15 @@ import {
 import { longDate, shortDate } from '../utils/dates';
 import { getPosition, Point } from '../utils/location';
 import { colors, radius, s, vs } from '../theme';
+import { useFresh } from '../store/useFresh';
 
 const REMARK_DELAY = 700;
 
+// What this screen shows; fetched again when it comes back into view.
+const FRESH = ['LabState'] as const;
+
 export function LabReadinessScreen() {
+  const fresh = useFresh(FRESH);
   const nav = useNavigation<any>();
   const route = useRoute<any>();
   const dispatch = useAppDispatch();
@@ -243,7 +248,11 @@ export function LabReadinessScreen() {
         </View>
       </ScreenHeader>
 
-      <ScreenScroll bottomGap={24} contentContainerStyle={styles.scroll}>
+      <ScreenScroll
+        bottomGap={24}
+        contentContainerStyle={styles.scroll}
+        onRefresh={fresh}
+      >
         {unitsError ? (
           <Notice
             tone="error"

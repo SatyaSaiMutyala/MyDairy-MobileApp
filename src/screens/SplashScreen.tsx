@@ -1,5 +1,12 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, Easing, StatusBar, StyleSheet, useWindowDimensions, View } from 'react-native';
+import {
+  Animated,
+  Easing,
+  StatusBar,
+  StyleSheet,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import { ArcBackdrop } from '../components/ArcBackdrop';
 import { AppText } from '../components/AppText';
 import { Logo } from '../components/Logo';
@@ -48,9 +55,10 @@ export function SplashScreen({ onDone }: Props) {
               },
             ],
           },
-        ]}>
+        ]}
+      >
         <Logo size={112} elevated />
-        <AppText style={styles.name}>MyDiary</AppText>
+        <AppText style={styles.name}>Trust Diary</AppText>
         <AppText style={styles.org}>TRUSTLAB DIAGNOSTICS</AppText>
       </Animated.View>
 

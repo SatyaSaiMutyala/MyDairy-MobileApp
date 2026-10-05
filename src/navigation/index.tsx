@@ -2,7 +2,19 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { ActivityReopenScreen } from '../screens/ActivityReopenScreen';
+import { ActivityScreen } from '../screens/ActivityScreen';
 import { AlertsScreen } from '../screens/AlertsScreen';
+import { DiscussionDetailScreen } from '../screens/DiscussionDetailScreen';
+import { DiscussionFormScreen } from '../screens/DiscussionFormScreen';
+import { DiscussionsScreen } from '../screens/DiscussionsScreen';
+import { MeetingDetailScreen } from '../screens/MeetingDetailScreen';
+import { MeetingFormScreen } from '../screens/MeetingFormScreen';
+import { MeetingsScreen } from '../screens/MeetingsScreen';
+import { MilestoneFormScreen } from '../screens/MilestoneFormScreen';
+import { ProjectDetailScreen } from '../screens/ProjectDetailScreen';
+import { ProjectFormScreen } from '../screens/ProjectFormScreen';
+import { ProjectsScreen } from '../screens/ProjectsScreen';
 import { NotificationsScreen } from '../screens/NotificationsScreen';
 import { ChangePasswordScreen } from '../screens/ChangePasswordScreen';
 import { DailyReportScreen } from '../screens/DailyReportScreen';
@@ -63,12 +75,21 @@ function PushListener() {
 }
 
 function Tabs() {
+  // Lab Readiness is only for people who work with the lab. Everyone else
+  // signs off a daily activity log instead; admin and CMD get both.
+  const lab = useAppSelector(st => st.session.user?.lab ?? true);
+  const activity = useAppSelector(
+    st => !(st.session.user?.lab ?? true) || !!st.session.user?.sees_all,
+  );
   return (
     <Tab.Navigator tabBar={renderTabBar} screenOptions={{ headerShown: false }}>
       <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="Tasks" component={TasksScreen} />
       <Tab.Screen name="Diary" component={DiaryScreen} />
-      <Tab.Screen name="Lab" component={LabReadinessScreen} />
+      {lab ? <Tab.Screen name="Lab" component={LabReadinessScreen} /> : null}
+      {activity ? (
+        <Tab.Screen name="Activity" component={ActivityScreen} />
+      ) : null}
       <Tab.Screen name="More" component={MoreScreen} />
     </Tab.Navigator>
   );
@@ -98,6 +119,19 @@ export function RootNavigator() {
         <Stack.Screen name="Tabs" component={Tabs} />
         <Stack.Screen name="Alerts" component={AlertsScreen} />
         <Stack.Screen name="Notifications" component={NotificationsScreen} />
+        <Stack.Screen name="Meetings" component={MeetingsScreen} />
+        <Stack.Screen name="MeetingDetail" component={MeetingDetailScreen} />
+        <Stack.Screen name="MeetingForm" component={MeetingFormScreen} />
+        <Stack.Screen name="Discussions" component={DiscussionsScreen} />
+        <Stack.Screen
+          name="DiscussionDetail"
+          component={DiscussionDetailScreen}
+        />
+        <Stack.Screen name="DiscussionForm" component={DiscussionFormScreen} />
+        <Stack.Screen name="Projects" component={ProjectsScreen} />
+        <Stack.Screen name="ProjectDetail" component={ProjectDetailScreen} />
+        <Stack.Screen name="ProjectForm" component={ProjectFormScreen} />
+        <Stack.Screen name="MilestoneForm" component={MilestoneFormScreen} />
         <Stack.Screen name="RaiseAlert" component={RaiseAlertScreen} />
         <Stack.Screen name="ResolveAlert" component={ResolveAlertScreen} />
         <Stack.Screen name="PreOps" component={PreOpsScreen} />
@@ -114,6 +148,7 @@ export function RootNavigator() {
         <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
         <Stack.Screen name="LabSignOff" component={LabSignOffScreen} />
         <Stack.Screen name="LabReopen" component={LabReopenScreen} />
+        <Stack.Screen name="ActivityReopen" component={ActivityReopenScreen} />
         <Stack.Screen name="LabHistory" component={LabHistoryScreen} />
         <Stack.Screen name="LabRecord" component={LabRecordScreen} />
       </Stack.Navigator>

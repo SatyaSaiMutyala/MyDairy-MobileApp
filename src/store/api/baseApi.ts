@@ -1,5 +1,9 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
-import type { BaseQueryFn, FetchArgs, FetchBaseQueryError } from '@reduxjs/toolkit/query';
+import type {
+  BaseQueryFn,
+  FetchArgs,
+  FetchBaseQueryError,
+} from '@reduxjs/toolkit/query';
 import { API_BASE_URL, API_TIMEOUT } from '../../config';
 import type { RootState } from '../store';
 import { sessionEnded } from '../slices/sessionSlice';
@@ -65,12 +69,58 @@ const baseQuery: BaseQueryFn<string | FetchArgs, unknown, ApiError> = async (
   return { error };
 };
 
+// Every kind of data the app caches. A tag names a list or a record; writes
+// invalidate tags, and anything on screen that carries that tag is fetched
+// again. The same names are used to refresh a screen when it comes back
+// into view, when the app returns from the background, and when a push says
+// something changed.
+export const ALL_TAGS = [
+  'Me',
+  'LabState',
+  'LabHistory',
+  'LabRecord',
+  'Tasks',
+  'Task',
+  'Alerts',
+  'Alert',
+  'PreOps',
+  'PreOpsHistory',
+  'Report',
+  'ReportHistory',
+  'Activity',
+  'ActivityHistory',
+  'ActivityOverview',
+  'Diary',
+  'DiaryInvites',
+  'DiaryEntry',
+  'Visits',
+  'Visit',
+  'Meetings',
+  'Meeting',
+  'Discussions',
+  'Discussion',
+  'Projects',
+  'Project',
+  'Notices',
+] as const;
+export type Tag = (typeof ALL_TAGS)[number];
+
 export const baseApi = createApi({
   reducerPath: 'api',
   baseQuery,
-  tagTypes: ['Me'],
+  tagTypes: [...ALL_TAGS],
   endpoints: () => ({}),
+  // Data may have changed on the website in the meantime, so a screen asks
+  // again whenever it is opened, and whenever the app comes back to the
+  // front. What is already cached stays on screen while the answer arrives.
+  refetchOnMountOrArgChange: true,
+  refetchOnFocus: true,
+  refetchOnReconnect: true,
 });
+
+// Marks data as stale so every screen showing it fetches it again.
+export const refresh = (tags: readonly Tag[]) =>
+  baseApi.util.invalidateTags([...tags]);
 
 // Reads the message out of whatever RTK Query hands back.
 export const errorMessage = (e: unknown, fallback = 'Something went wrong.') =>

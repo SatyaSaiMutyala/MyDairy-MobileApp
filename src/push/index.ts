@@ -74,20 +74,33 @@ export function openLink(link: NoticeLink | null | undefined) {
       return navigationRef.navigate('Alerts');
     case 'preops':
       return navigationRef.navigate('PreOps', { dept: String(id) });
+    case 'meeting':
+      return navigationRef.navigate('MeetingDetail', { id: Number(id) });
+    case 'discussion':
+      return navigationRef.navigate('DiscussionDetail', { id: Number(id) });
+    case 'project':
+      return navigationRef.navigate('ProjectDetail', { id: Number(id) });
     case 'report':
       return navigationRef.navigate('DailyReport', { dept: String(id) });
+    case 'activity':
+      return navigationRef.navigate('Tabs', {
+        screen: 'Activity',
+        params: { date: String(id) },
+      });
   }
 }
 
-type PushData = { link_type?: string; link_id?: string } | undefined;
+type PushData =
+  | { kind?: string; link_type?: string; link_id?: string }
+  | undefined;
 const linkOf = (data: PushData): NoticeLink | null =>
   data?.link_type && data.link_id
     ? { type: data.link_type as NoticeLink['type'], id: data.link_id }
     : null;
 
 type Handlers = {
-  // A push arrived while the app is open: refresh the bell.
-  onArrive: () => void;
+  // A push arrived while the app is open: refresh what it is about.
+  onArrive: (kind?: string) => void;
   // Firebase gave this phone a new address.
   onNewToken: (token: string) => void;
 };
@@ -103,11 +116,11 @@ export function listenForPushes({
   }
   const m = fb.getMessaging();
   const stops = [
-    fb.onMessage(m, async () => onArrive()),
+    fb.onMessage(m, async msg => onArrive((msg?.data as PushData)?.kind)),
     fb.onTokenRefresh(m, onNewToken),
     // Tapped while the app was in the background.
     fb.onNotificationOpenedApp(m, msg => {
-      onArrive();
+      onArrive((msg?.data as PushData)?.kind);
       openLink(linkOf(msg?.data as PushData));
     }),
   ];

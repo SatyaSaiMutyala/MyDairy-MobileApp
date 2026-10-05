@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-	<string>MyDiary</string>
+	<string>Trust Diary</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -34,11 +34,13 @@
 		<true/>
 	</dict>
 	<key>NSCameraUsageDescription</key>
-	<string>MyDiary uses the camera to photograph checklist evidence and to take your sign-off selfie.</string>
+	<string>Trust Diary uses the camera to photograph checklist evidence and to take your sign-off selfie.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Trust Diary records where a lab checklist was started and signed. It is only used while you are using the app.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>MyDiary records where a lab checklist was started and signed.</string>
+	<string>Trust Diary records where a lab checklist was started and signed.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>MyDiary lets you attach photographs from your library as evidence.</string>
+	<string>Trust Diary lets you attach photographs from your library as evidence.</string>
 	<key>RCTNewArchEnabled</key>
 	<true/>
 	<key>UIAppFonts</key>

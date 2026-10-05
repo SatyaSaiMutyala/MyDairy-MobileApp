@@ -17,10 +17,15 @@ import { useLabUnit } from '../lab/useLabUnit';
 import { errorMessage } from '../store';
 import { HistoryRow, Phase, useLabHistoryQuery } from '../store/api/labApi';
 import { colors, s, vs } from '../theme';
+import { useFresh } from '../store/useFresh';
 
 const PER_PAGE = 20;
 
+// What this screen shows; fetched again when it comes back into view.
+const FRESH = ['LabHistory'] as const;
+
 export function LabHistoryScreen() {
+  const fresh = useFresh(FRESH);
   const nav = useNavigation<any>();
   const { units } = useLabUnit();
   const [unit, setUnit] = useState('all');
@@ -72,7 +77,7 @@ export function LabHistoryScreen() {
   };
 
   return (
-    <FormScreen title="History" onEndReached={loadMore}>
+    <FormScreen title="History" onEndReached={loadMore} onRefresh={fresh}>
       <View style={styles.filters}>
         <Dropdown
           style={styles.filter}

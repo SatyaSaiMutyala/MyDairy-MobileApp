@@ -26,6 +26,7 @@ import { pagesOf } from '../store/pages';
 import { useDebounced } from '../utils/useDebounced';
 import { toVisit, visitTypes } from '../visits/model';
 import { colors, hairline, s, vs } from '../theme';
+import { useFresh } from '../store/useFresh';
 
 const statuses = [
   { id: 'all', label: 'All status' },
@@ -41,7 +42,11 @@ const sorts = [
 
 const blank = { type: 'all', status: 'all', from: '', to: '', sort: 'recent' };
 
+// What this screen shows; fetched again when it comes back into view.
+const FRESH = ['Visits'] as const;
+
 export function VisitsScreen() {
+  const fresh = useFresh(FRESH);
   const nav = useNavigation<any>();
   const [search, setSearch] = useState('');
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -74,6 +79,7 @@ export function VisitsScreen() {
   return (
     <FormScreen
       title="Visit observations"
+      onRefresh={fresh}
       onEndReached={list.loadMore}
       footer={
         <Button

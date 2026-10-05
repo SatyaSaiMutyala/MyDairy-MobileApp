@@ -9,7 +9,12 @@ import { Notice } from '../components/Notice';
 import { ScreenScroll } from '../components/ScreenScroll';
 import { TealHeader } from '../components/TealHeader';
 import { TextField } from '../components/TextField';
-import { errorMessage, fieldErrors, useAppDispatch, useAppSelector } from '../store';
+import {
+  errorMessage,
+  fieldErrors,
+  useAppDispatch,
+  useAppSelector,
+} from '../store';
 import { useLoginMutation } from '../store/api/authApi';
 import { signedIn } from '../store/slices/sessionSlice';
 import { colors, fs, fonts, ms, radius, s, vs, space } from '../theme';
@@ -43,22 +48,25 @@ export function SignInScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.root}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
       <ScreenScroll
         bounces={false}
         padded={false}
         bottomGap={0}
-        contentContainerStyle={styles.scroll}>
+        contentContainerStyle={styles.scroll}
+      >
         <TealHeader
           inTabs={false}
           rounded={false}
           topGap={28}
           arcHeight={HERO}
-          style={styles.hero}>
+          style={styles.hero}
+        >
           <View style={styles.brand}>
             <Logo size={46} />
             <View>
-              <AppText style={styles.brandName}>MyDiary</AppText>
+              <AppText style={styles.brandName}>Trust Diary</AppText>
               <AppText variant="metaStrong" color={colors.onTealSoft}>
                 TrustLab Diagnostics
               </AppText>
@@ -76,7 +84,11 @@ export function SignInScreen() {
           {error ? (
             <Notice
               tone="error"
-              title={wrongLogin ? 'Email or password is incorrect' : errorMessage(error)}
+              title={
+                wrongLogin
+                  ? 'Email or password is incorrect'
+                  : errorMessage(error)
+              }
               text={
                 wrongLogin
                   ? 'Check both and try again. Passwords are case-sensitive.'
@@ -122,7 +134,10 @@ export function SignInScreen() {
             textContentType="password"
             returnKeyType="go"
             onSubmitEditing={submit}
-            error={fields.password ?? (wrongLogin ? 'Re-enter your password' : undefined)}
+            error={
+              fields.password ??
+              (wrongLogin ? 'Re-enter your password' : undefined)
+            }
           />
 
           <Button
@@ -133,7 +148,11 @@ export function SignInScreen() {
             style={styles.cta}
           />
 
-          <AppText variant="bodyRegular" color={colors.inkMuted} style={styles.help}>
+          <AppText
+            variant="bodyRegular"
+            color={colors.inkMuted}
+            style={styles.help}
+          >
             Trouble signing in? Contact your IT administrator.
           </AppText>
 
@@ -141,7 +160,8 @@ export function SignInScreen() {
           <AppText
             variant="meta"
             color={colors.inkMuted}
-            style={[styles.legal, { paddingBottom: insets.bottom + vs(14) }]}>
+            style={[styles.legal, { paddingBottom: insets.bottom + vs(14) }]}
+          >
             TrustLab Diagnostics Pvt. Ltd. · Begumpet, Hyderabad
           </AppText>
         </View>

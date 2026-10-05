@@ -11,7 +11,8 @@ import { useChangePasswordMutation } from '../store/api/authApi';
 import { vs } from '../theme';
 
 export function ChangePasswordScreen() {
-  const [change, { isLoading, error, isSuccess, reset }] = useChangePasswordMutation();
+  const [change, { isLoading, error, isSuccess, reset }] =
+    useChangePasswordMutation();
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -56,7 +57,8 @@ export function ChangePasswordScreen() {
           disabled={!current || !next || !confirm || isLoading}
           onPress={submit}
         />
-      }>
+      }
+    >
       {isSuccess ? (
         <Notice
           tone="success"
@@ -66,7 +68,11 @@ export function ChangePasswordScreen() {
         />
       ) : null}
       {error && !fields.current_password && !fields.password ? (
-        <Notice tone="error" title={errorMessage(error)} style={styles.notice} />
+        <Notice
+          tone="error"
+          title={errorMessage(error)}
+          style={styles.notice}
+        />
       ) : null}
       <FormCard>
         <TextField

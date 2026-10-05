@@ -34,6 +34,7 @@ import {
 } from '../visits/model';
 import { longDate, shortDate } from '../utils/dates';
 import { colors, s, vs } from '../theme';
+import { useFresh } from '../store/useFresh';
 
 const categoryTone: Record<string, PillTone> = {
   positive: 'good',
@@ -44,7 +45,11 @@ const categoryTone: Record<string, PillTone> = {
   improvement: 'teal',
 };
 
+// What this screen shows; fetched again when it comes back into view.
+const FRESH = ['Visit'] as const;
+
 export function VisitDetailScreen() {
+  const fresh = useFresh(FRESH);
   const nav = useNavigation<any>();
   const route = useRoute<any>();
   const query = useVisitQuery(route.params?.id);
@@ -133,6 +138,7 @@ export function VisitDetailScreen() {
   return (
     <FormScreen
       title="Visit"
+      onRefresh={fresh}
       footer={footer}
       right={
         visit.canDelete ? (
