@@ -1,11 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import {
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  StyleSheet,
-  View,
-} from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Check, Lock, Pencil, Plus } from 'lucide-react-native';
 import {
@@ -31,6 +25,7 @@ import { EmptyState } from '../components/EmptyState';
 import { ExpandRow } from '../components/ExpandRow';
 import { Eyebrow } from '../components/Eyebrow';
 import { FooterBar } from '../components/FooterBar';
+import { KeyboardAvoider } from '../components/KeyboardAvoider';
 import { FormCard } from '../components/FormCard';
 import { IconTile } from '../components/IconTile';
 import { InfoRow } from '../components/InfoRow';
@@ -108,10 +103,7 @@ export function ActivityScreen() {
   ) : null;
 
   return (
-    <KeyboardAvoidingView
-      style={styles.root}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
+    <KeyboardAvoider style={styles.root}>
       <ScreenHeader
         eyebrow={
           date === TODAY
@@ -231,7 +223,7 @@ export function ActivityScreen() {
           onRefresh={fresh}
         />
       )}
-    </KeyboardAvoidingView>
+    </KeyboardAvoider>
   );
 }
 

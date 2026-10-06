@@ -1,11 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  StyleSheet,
-  View,
-} from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import {
   Check,
@@ -22,6 +16,7 @@ import { DateField } from '../components/DateField';
 import { Dropdown } from '../components/Dropdown';
 import { Card } from '../components/Card';
 import { FooterBar } from '../components/FooterBar';
+import { KeyboardAvoider } from '../components/KeyboardAvoider';
 import { IconTile } from '../components/IconTile';
 import { LabSections } from '../components/LabSections';
 import { LocationLine } from '../components/LocationLine';
@@ -152,10 +147,7 @@ export function LabReadinessScreen() {
   }));
 
   return (
-    <KeyboardAvoidingView
-      style={styles.root}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
+    <KeyboardAvoider style={styles.root}>
       <ScreenHeader
         eyebrow={
           date === TODAY
@@ -465,7 +457,7 @@ export function LabReadinessScreen() {
           )}
         </FooterBar>
       ) : null}
-    </KeyboardAvoidingView>
+    </KeyboardAvoider>
   );
 }
 

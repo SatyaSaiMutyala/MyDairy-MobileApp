@@ -1,8 +1,9 @@
 import React from 'react';
-import { KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { colors } from '../theme';
 import { FooterBar } from './FooterBar';
+import { KeyboardAvoider } from './KeyboardAvoider';
 import { ScreenScroll } from './ScreenScroll';
 import { TopBar } from './TopBar';
 
@@ -27,10 +28,7 @@ export function FormScreen({
 }: Props) {
   const nav = useNavigation();
   return (
-    <KeyboardAvoidingView
-      style={styles.root}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
+    <KeyboardAvoider style={styles.root}>
       <TopBar
         title={title}
         right={right}
@@ -44,7 +42,7 @@ export function FormScreen({
         {children}
       </ScreenScroll>
       {footer ? <FooterBar>{footer}</FooterBar> : null}
-    </KeyboardAvoidingView>
+    </KeyboardAvoider>
   );
 }
 

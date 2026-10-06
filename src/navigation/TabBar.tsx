@@ -12,7 +12,7 @@ import {
 } from 'lucide-react-native';
 import type { LucideIcon } from 'lucide-react-native';
 import { AppText } from '../components/AppText';
-import { colors, fonts, hairline, radius, s, vs } from '../theme';
+import { colors, fonts, hairline, s, vs } from '../theme';
 
 const icons: Record<string, LucideIcon> = {
   Home: House,
@@ -52,7 +52,8 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
             accessibilityState={{ selected: on }}
             accessibilityLabel={route.name}
             style={styles.tab}>
-            <View style={[styles.well, on && styles.wellOn]}>
+            <View style={styles.well}>
+              {on ? <View style={styles.wellOn} /> : null}
               <Icon size={s(22)} color={ink} strokeWidth={on ? 2 : 1.75} />
             </View>
             <AppText
@@ -68,6 +69,8 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
   );
 }
 
+const WELL_HEIGHT = vs(30);
+
 const styles = StyleSheet.create({
   bar: {
     flexDirection: 'row',
@@ -80,11 +83,16 @@ const styles = StyleSheet.create({
   tab: { flex: 1, alignItems: 'center', gap: vs(3) },
   well: {
     width: s(54),
-    height: vs(30),
-    borderRadius: radius.pill,
+    height: WELL_HEIGHT,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  wellOn: { backgroundColor: colors.tealTint },
+  // A view of its own rather than a background toggled on the well: Android
+  // redraws a background added after mount without its rounded corners.
+  wellOn: {
+    ...StyleSheet.absoluteFill,
+    borderRadius: WELL_HEIGHT / 2,
+    backgroundColor: colors.tealTint,
+  },
   labelOn: { fontFamily: fonts.semibold },
 });

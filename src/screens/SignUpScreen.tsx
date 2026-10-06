@@ -13,6 +13,7 @@ import {
 import { AppText } from '../components/AppText';
 import { Button } from '../components/Button';
 import { useConfirm } from '../components/ConfirmDialog';
+import { KeyboardAvoider } from '../components/KeyboardAvoider';
 import { Logo } from '../components/Logo';
 import { ScreenScroll } from '../components/ScreenScroll';
 import { StatusBarShade } from '../components/StatusBarShade';
@@ -67,13 +68,12 @@ export function SignUpScreen({ onDone }: { onDone: () => void }) {
   const show = (key: keyof typeof errors) => (tried ? errors[key] : undefined);
 
   return (
-    <View style={styles.root}>
+    <KeyboardAvoider style={styles.root}>
       <StatusBarShade />
       <ScreenScroll
         bounces={false}
         padded={false}
         bottomGap={0}
-        automaticallyAdjustKeyboardInsets
         contentContainerStyle={styles.scroll}
       >
         <TealHeader
@@ -207,7 +207,7 @@ export function SignUpScreen({ onDone }: { onDone: () => void }) {
           </AppText>
         </View>
       </ScreenScroll>
-    </View>
+    </KeyboardAvoider>
   );
 }
 

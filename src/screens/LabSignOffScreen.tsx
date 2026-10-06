@@ -35,7 +35,8 @@ export function LabSignOffScreen() {
   const capture = async () => {
     const shot = await takeSelfie();
     setError(shot.error);
-    if (shot.error) {
+    // A refused permission must not open the gallery: the selfie has to be live.
+    if (shot.noCamera) {
       setNoCamera(true);
     }
     if (shot.uris[0]) {

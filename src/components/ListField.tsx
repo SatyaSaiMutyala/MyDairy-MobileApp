@@ -4,6 +4,7 @@ import { Plus, X } from 'lucide-react-native';
 import { colors, fieldGap, fieldHeight, fonts, fs, hairline, labelGap, ms, radius, s, vs } from '../theme';
 import { AppText } from './AppText';
 import { IconButton } from './IconButton';
+import { inputFocused } from './KeyboardAvoider';
 
 type Props = {
   label: string;
@@ -50,6 +51,7 @@ export function ListField({ label, items, onChange, placeholder = 'Add a line', 
           value={text}
           onChangeText={setText}
           onSubmitEditing={add}
+          onFocus={inputFocused}
           allowFontScaling={false}
           returnKeyType="done"
           blurOnSubmit={false}

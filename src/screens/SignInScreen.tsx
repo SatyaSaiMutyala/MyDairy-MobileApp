@@ -5,6 +5,7 @@ import { ArrowRight, Lock, Mail } from 'lucide-react-native';
 import { AppText } from '../components/AppText';
 import { Button } from '../components/Button';
 import { Logo } from '../components/Logo';
+import { KeyboardAvoider } from '../components/KeyboardAvoider';
 import { Notice } from '../components/Notice';
 import { ScreenScroll } from '../components/ScreenScroll';
 import { StatusBarShade } from '../components/StatusBarShade';
@@ -49,13 +50,12 @@ export function SignInScreen({ onSignUp }: { onSignUp?: () => void }) {
   const wrongLogin = (error as { status?: number } | undefined)?.status === 401;
 
   return (
-    <View style={styles.root}>
+    <KeyboardAvoider style={styles.root}>
       <StatusBarShade />
       <ScreenScroll
         bounces={false}
         padded={false}
         bottomGap={0}
-        automaticallyAdjustKeyboardInsets
         contentContainerStyle={styles.scroll}
       >
         <TealHeader
@@ -169,7 +169,7 @@ export function SignInScreen({ onSignUp }: { onSignUp?: () => void }) {
           <View style={[styles.grow, { paddingBottom: insets.bottom + vs(14) }]} />
         </View>
       </ScreenScroll>
-    </View>
+    </KeyboardAvoider>
   );
 }
 

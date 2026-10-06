@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { Plus } from 'lucide-react-native';
 import { colors, fieldHeight, fonts, fs, ms, radius, s, vs } from '../theme';
+import { inputFocused } from './KeyboardAvoider';
 
 type Props = {
   placeholder: string;
@@ -24,6 +25,7 @@ export function QuickAdd({ placeholder, onAdd }: Props) {
         value={text}
         onChangeText={setText}
         onSubmitEditing={submit}
+        onFocus={inputFocused}
         allowFontScaling={false}
         returnKeyType="done"
         maxLength={255}

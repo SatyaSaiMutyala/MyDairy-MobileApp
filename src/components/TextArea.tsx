@@ -2,10 +2,17 @@ import React from 'react';
 import { StyleSheet, TextInput, TextInputProps, View } from 'react-native';
 import { colors, fieldGap, fonts, fs, labelGap, ms, radius, s, vs } from '../theme';
 import { AppText } from './AppText';
+import { inputFocused } from './KeyboardAvoider';
 
 type Props = TextInputProps & { label?: string; invalid?: boolean };
 
-export function TextArea({ label, invalid = false, style, ...rest }: Props) {
+export function TextArea({
+  label,
+  invalid = false,
+  style,
+  onFocus,
+  ...rest
+}: Props) {
   const input = (
     <TextInput
       multiline
@@ -14,6 +21,10 @@ export function TextArea({ label, invalid = false, style, ...rest }: Props) {
       selectionColor={colors.teal}
       textAlignVertical="top"
       {...rest}
+      onFocus={e => {
+        inputFocused();
+        onFocus?.(e);
+      }}
       style={[styles.input, invalid && styles.bad, label ? null : style]}
     />
   );

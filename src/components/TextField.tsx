@@ -5,6 +5,7 @@ import type { LucideIcon } from 'lucide-react-native';
 import { colors, fieldGap, fieldHeight, fonts, fs, labelGap, ms, radius, s, vs } from '../theme';
 import { AppText } from './AppText';
 import { IconButton } from './IconButton';
+import { inputFocused } from './KeyboardAvoider';
 
 type Props = TextInputProps & {
   label: string;
@@ -56,6 +57,7 @@ export function TextField({
           selectionColor={colors.teal}
           onFocus={e => {
             setFocused(true);
+            inputFocused();
             onFocus?.(e);
           }}
           onBlur={e => {
