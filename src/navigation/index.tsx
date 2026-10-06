@@ -18,6 +18,7 @@ import { ProjectsScreen } from '../screens/ProjectsScreen';
 import { NotificationsScreen } from '../screens/NotificationsScreen';
 import { ChangePasswordScreen } from '../screens/ChangePasswordScreen';
 import { DailyReportScreen } from '../screens/DailyReportScreen';
+import { DeleteAccountScreen } from '../screens/DeleteAccountScreen';
 import { DiaryEntryFormScreen } from '../screens/DiaryEntryFormScreen';
 import { DiaryEntryScreen } from '../screens/DiaryEntryScreen';
 import { DiaryScreen } from '../screens/DiaryScreen';
@@ -33,7 +34,9 @@ import { PreOpsScreen } from '../screens/PreOpsScreen';
 import { RaiseAlertScreen } from '../screens/RaiseAlertScreen';
 import { ResolveAlertScreen } from '../screens/ResolveAlertScreen';
 import { ResolveTaskScreen } from '../screens/ResolveTaskScreen';
+import { ForceUpdateDialog } from '../components/ForceUpdateDialog';
 import { SignInScreen } from '../screens/SignInScreen';
+import { SignUpScreen } from '../screens/SignUpScreen';
 import { SplashScreen } from '../screens/SplashScreen';
 import { TaskDetailScreen } from '../screens/TaskDetailScreen';
 import { TaskFormScreen } from '../screens/TaskFormScreen';
@@ -46,6 +49,7 @@ import { loadSession } from '../store/persist';
 import { restored } from '../store/slices/sessionSlice';
 import { navigationRef } from '../push';
 import { usePush } from '../push/usePush';
+import { useForceUpdate } from '../update/useForceUpdate';
 import { colors } from '../theme';
 import { TabBar } from './TabBar';
 
@@ -95,10 +99,24 @@ function Tabs() {
   );
 }
 
+// Blocks every screen while this build is too old. Shown only after the
+// splash, which would otherwise cover it.
+function UpdateGate() {
+  const { updateRequired, storeVersion, openStore } = useForceUpdate();
+  return (
+    <ForceUpdateDialog
+      visible={updateRequired}
+      storeVersion={storeVersion}
+      onUpdate={openStore}
+    />
+  );
+}
+
 export function RootNavigator() {
   const dispatch = useAppDispatch();
   const { token, loading } = useAppSelector(st => st.session);
   const [booting, setBooting] = useState(true);
+  const [signingUp, setSigningUp] = useState(false);
   const finishBoot = useCallback(() => setBooting(false), []);
 
   // Read the saved token while the splash screen plays.
@@ -110,10 +128,20 @@ export function RootNavigator() {
     return <SplashScreen onDone={finishBoot} />;
   }
   if (!token) {
-    return <SignInScreen />;
+    return (
+      <>
+        <UpdateGate />
+        {signingUp ? (
+          <SignUpScreen onDone={() => setSigningUp(false)} />
+        ) : (
+          <SignInScreen onSignUp={() => setSigningUp(true)} />
+        )}
+      </>
+    );
   }
   return (
     <NavigationContainer theme={navTheme} ref={navigationRef}>
+      <UpdateGate />
       <PushListener />
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         <Stack.Screen name="Tabs" component={Tabs} />
@@ -146,6 +174,7 @@ export function RootNavigator() {
         <Stack.Screen name="DiaryEntryForm" component={DiaryEntryFormScreen} />
         <Stack.Screen name="DiaryEntry" component={DiaryEntryScreen} />
         <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
+        <Stack.Screen name="DeleteAccount" component={DeleteAccountScreen} />
         <Stack.Screen name="LabSignOff" component={LabSignOffScreen} />
         <Stack.Screen name="LabReopen" component={LabReopenScreen} />
         <Stack.Screen name="ActivityReopen" component={ActivityReopenScreen} />

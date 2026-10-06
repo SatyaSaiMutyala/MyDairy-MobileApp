@@ -32,8 +32,23 @@ type PasswordBody = {
   password_confirmation: string;
 };
 
+// Switches set on the server (.env MOBILE_SHOW_*), read before sign-in.
+export type AppConfig = {
+  ok: true;
+  showSignUp: boolean;
+  showDeleteAccount: boolean;
+  // Builds older than this must update; null = no minimum.
+  minVersion: { android: string | null; ios: string | null };
+  // The numeric App Store id, for the update link on iPhone.
+  iosAppId: string | null;
+};
+
 export const authApi = baseApi.injectEndpoints({
   endpoints: build => ({
+    appConfig: build.query<AppConfig, void>({
+      query: () => 'app/config',
+      keepUnusedDataFor: 3600,
+    }),
     login: build.mutation<LoginReply, LoginBody>({
       query: body => ({ url: 'auth/login', method: 'POST', body }),
     }),
@@ -47,12 +62,21 @@ export const authApi = baseApi.injectEndpoints({
     changePassword: build.mutation<{ ok: true }, PasswordBody>({
       query: body => ({ url: 'me/password', method: 'POST', body }),
     }),
+    // Closes the signed-in person's own account.
+    deleteAccount: build.mutation<
+      { ok: true; message: string },
+      { password: string; reason?: string }
+    >({
+      query: body => ({ url: 'me/delete', method: 'POST', body }),
+    }),
   }),
 });
 
 export const {
+  useAppConfigQuery,
   useLoginMutation,
   useLogoutMutation,
   useMeQuery,
   useChangePasswordMutation,
+  useDeleteAccountMutation,
 } = authApi;

@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
 import { Modal, Pressable, StyleSheet, View } from 'react-native';
-import { CircleAlert, CircleHelp, LogOut, Trash2 } from 'lucide-react-native';
+import { CircleAlert, CircleCheckBig, CircleHelp, LogOut, Trash2 } from 'lucide-react-native';
 import type { LucideIcon } from 'lucide-react-native';
 import { colors, ms, radius, s, shadow, space, vs } from '../theme';
 import { AppText } from './AppText';
@@ -12,9 +12,12 @@ export type ConfirmOptions = {
   text?: string;
   confirmLabel?: string;
   cancelLabel?: string;
-  // 'danger' for delete and sign out, 'warn' for "submit anyway", 'ask' otherwise.
-  tone?: 'ask' | 'warn' | 'danger';
+  // 'danger' for delete and sign out, 'warn' for "submit anyway", 'success'
+  // for a done message, 'ask' otherwise.
+  tone?: 'ask' | 'warn' | 'danger' | 'success';
   icon?: LucideIcon;
+  // Only the confirm button: a message to acknowledge, not a question.
+  single?: boolean;
 };
 
 type Ask = (options: ConfirmOptions) => Promise<boolean>;
@@ -25,6 +28,7 @@ const tones = {
   ask: { icon: CircleHelp, bg: colors.tealTint, ink: colors.tealDeep, variant: 'secondary' as const },
   warn: { icon: CircleAlert, bg: colors.amberTint, ink: colors.amberInk, variant: 'primary' as const },
   danger: { icon: Trash2, bg: colors.redTint, ink: colors.red, variant: 'danger' as const },
+  success: { icon: CircleCheckBig, bg: colors.greenTint, ink: colors.greenInk, variant: 'primary' as const },
 };
 
 // One themed "Are you sure?" box for the whole app. Screens call
@@ -74,13 +78,15 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
               </AppText>
             ) : null}
             <View style={styles.actions}>
-              <Button
-                label={options?.cancelLabel ?? 'Cancel'}
-                variant="outline"
-                size="md"
-                style={styles.action}
-                onPress={() => close(false)}
-              />
+              {options?.single ? null : (
+                <Button
+                  label={options?.cancelLabel ?? 'Cancel'}
+                  variant="outline"
+                  size="md"
+                  style={styles.action}
+                  onPress={() => close(false)}
+                />
+              )}
               <Button
                 label={options?.confirmLabel ?? 'Yes'}
                 variant={tone.variant}

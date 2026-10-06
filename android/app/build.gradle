@@ -118,3 +118,15 @@ dependencies {
         implementation jscFlavor
     }
 }
+
+/**
+ * One version for the whole app: copies versionName above into
+ * src/config/appVersion.ts (and the iOS project) before every build, so the
+ * version the app compares with the store can never drift from the one
+ * shipped. See scripts/sync-version.js.
+ */
+tasks.register("syncAppVersion", Exec) {
+    workingDir rootProject.projectDir.parentFile
+    commandLine "node", "scripts/sync-version.js"
+}
+preBuild.dependsOn "syncAppVersion"

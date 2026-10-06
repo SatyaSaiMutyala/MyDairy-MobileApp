@@ -6,6 +6,7 @@ import {
   FileText,
   KeyRound,
   LogOut,
+  UserRoundX,
   MapPin,
   Bell,
   Users,
@@ -26,7 +27,7 @@ import { currentUser } from '../data/user';
 import { useAlertList } from '../alerts/useAlertList';
 import { useAppDispatch } from '../store';
 import { lastPushToken } from '../push/usePush';
-import { useLogoutMutation } from '../store/api/authApi';
+import { useAppConfigQuery, useLogoutMutation } from '../store/api/authApi';
 import { useForgetDeviceMutation } from '../store/api/notificationsApi';
 import { signedOut } from '../store/slices/sessionSlice';
 import { colors, radius, s, vs } from '../theme';
@@ -100,6 +101,12 @@ const signOutItem: MenuItem = {
   detail: 'End your shift on this phone',
 };
 
+const deleteItem: MenuItem = {
+  icon: UserRoundX,
+  title: 'Delete my account',
+  detail: 'Close your account and remove your sign-in',
+};
+
 const OPEN_ALERTS = { status: 'open' } as const;
 
 // What this screen shows; fetched again when it comes back into view.
@@ -110,6 +117,8 @@ export function MoreScreen() {
   const nav = useNavigation<any>();
   const dispatch = useAppDispatch();
   const [logout] = useLogoutMutation();
+  // Hidden until the server says to show it.
+  const showDelete = useAppConfigQuery().data?.showDeleteAccount ?? false;
   const [forgetDevice] = useForgetDeviceMutation();
   const confirm = useConfirm();
   // Tell the server to forget the token, then leave. Leaving does not wait
@@ -180,6 +189,13 @@ export function MoreScreen() {
             />
           ))}
           <MenuRow item={signOutItem} danger onPress={signOut} />
+          {showDelete ? (
+            <MenuRow
+              item={deleteItem}
+              danger
+              onPress={() => nav.navigate('DeleteAccount')}
+            />
+          ) : null}
         </CardList>
 
         <AppText variant="meta" color={colors.inkFaint} style={styles.version}>

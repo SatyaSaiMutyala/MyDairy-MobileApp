@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArrowRight, Lock, Mail } from 'lucide-react-native';
 import { AppText } from '../components/AppText';
@@ -7,6 +7,7 @@ import { Button } from '../components/Button';
 import { Logo } from '../components/Logo';
 import { Notice } from '../components/Notice';
 import { ScreenScroll } from '../components/ScreenScroll';
+import { StatusBarShade } from '../components/StatusBarShade';
 import { TealHeader } from '../components/TealHeader';
 import { TextField } from '../components/TextField';
 import {
@@ -15,17 +16,19 @@ import {
   useAppDispatch,
   useAppSelector,
 } from '../store';
-import { useLoginMutation } from '../store/api/authApi';
+import { useAppConfigQuery, useLoginMutation } from '../store/api/authApi';
 import { signedIn } from '../store/slices/sessionSlice';
 import { colors, fs, fonts, ms, radius, s, vs, space } from '../theme';
 
 const HERO = vs(290);
 
-export function SignInScreen() {
+export function SignInScreen({ onSignUp }: { onSignUp?: () => void }) {
   const insets = useSafeAreaInsets();
   const dispatch = useAppDispatch();
   const endedBecause = useAppSelector(st => st.session.endedBecause);
   const [login, { isLoading, error, reset }] = useLoginMutation();
+  // Hidden until the server says to show it.
+  const showSignUp = useAppConfigQuery().data?.showSignUp ?? false;
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
@@ -46,14 +49,13 @@ export function SignInScreen() {
   const wrongLogin = (error as { status?: number } | undefined)?.status === 401;
 
   return (
-    <KeyboardAvoidingView
-      style={styles.root}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
+    <View style={styles.root}>
+      <StatusBarShade />
       <ScreenScroll
         bounces={false}
         padded={false}
         bottomGap={0}
+        automaticallyAdjustKeyboardInsets
         contentContainerStyle={styles.scroll}
       >
         <TealHeader
@@ -76,7 +78,7 @@ export function SignInScreen() {
             Sign in to{'\n'}start your shift
           </AppText>
           <AppText variant="bodyRegular" color={colors.onTealSoft}>
-            Use your TrustLab work email and password.
+            Use your work email and password.
           </AppText>
         </TealHeader>
 
@@ -110,7 +112,7 @@ export function SignInScreen() {
                 reset();
               }
             }}
-            placeholder="name@trustlab.in"
+            placeholder="name@company.com"
             autoCapitalize="none"
             autoCorrect={false}
             keyboardType="email-address"
@@ -148,25 +150,26 @@ export function SignInScreen() {
             style={styles.cta}
           />
 
-          <AppText
-            variant="bodyRegular"
-            color={colors.inkMuted}
-            style={styles.help}
-          >
-            Trouble signing in? Contact your IT administrator.
-          </AppText>
+          {showSignUp && onSignUp ? (
+            <Pressable
+              onPress={onSignUp}
+              hitSlop={s(8)}
+              accessibilityRole="button"
+              style={styles.signUp}
+            >
+              <AppText variant="bodyRegular" color={colors.inkMuted}>
+                New organisation?{' '}
+                <AppText variant="label" color={colors.teal}>
+                  Create an account
+                </AppText>
+              </AppText>
+            </Pressable>
+          ) : null}
 
-          <View style={styles.grow} />
-          <AppText
-            variant="meta"
-            color={colors.inkMuted}
-            style={[styles.legal, { paddingBottom: insets.bottom + vs(14) }]}
-          >
-            TrustLab Diagnostics Pvt. Ltd. · Begumpet, Hyderabad
-          </AppText>
+          <View style={[styles.grow, { paddingBottom: insets.bottom + vs(14) }]} />
         </View>
       </ScreenScroll>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
@@ -197,7 +200,6 @@ const styles = StyleSheet.create({
   },
   alert: { marginBottom: vs(18) },
   cta: { marginTop: vs(6) },
-  help: { textAlign: 'center', marginTop: vs(24), paddingHorizontal: s(24) },
+  signUp: { alignSelf: 'center', marginTop: vs(24) },
   grow: { flexGrow: 1, minHeight: vs(28) },
-  legal: { textAlign: 'center' },
 });
