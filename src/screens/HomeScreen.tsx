@@ -2,6 +2,7 @@ import React, { useCallback } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import {
+  AlarmClock,
   Bell,
   Calendar,
   Plus,
@@ -25,7 +26,7 @@ import { ShimmerRows } from '../components/Shimmer';
 import { TaskRow } from '../components/TaskRow';
 import { TealHeader } from '../components/TealHeader';
 import { currentUser } from '../data/user';
-import { errorMessage } from '../store';
+
 import { GlanceCounts, useHomeSummaryQuery } from '../store/api/homeApi';
 import { todayIso } from '../store/slices/labSlice';
 import { useNextMeeting } from '../diary/useDiary';
@@ -43,6 +44,7 @@ import {
   ms,
   radius,
   s,
+  shadow,
   space,
   vs,
 } from '../theme';
@@ -166,7 +168,7 @@ export function HomeScreen() {
           <View style={styles.pair}>
             <Button
               label="Raise alert"
-              variant="outline"
+              variant="plain"
               size="md"
               iconLeft={TriangleAlert}
               iconColor={colors.red}
@@ -175,7 +177,7 @@ export function HomeScreen() {
             />
             <Button
               label="Add task"
-              variant="outline"
+              variant="plain"
               size="md"
               iconLeft={Plus}
               iconColor={colors.teal}
@@ -183,6 +185,15 @@ export function HomeScreen() {
               style={styles.pairItem}
             />
           </View>
+          <Button
+            label="Set a reminder"
+            variant="plain"
+            size="md"
+            iconLeft={AlarmClock}
+            iconColor={colors.teal}
+            onPress={() => nav.navigate('ReminderForm')}
+            style={styles.reminder}
+          />
 
           <Eyebrow label="At a glance" />
           <GlanceStrip
@@ -205,47 +216,47 @@ export function HomeScreen() {
             }
           />
 
-          <Eyebrow
-            label="Due today"
-            action={`See all ${remaining}`}
-            onAction={() => nav.navigate('Tasks', { status: 'today' })}
-          />
-          {today.firstLoad ? (
-            <Card>
-              <ShimmerRows rows={3} />
-            </Card>
-          ) : dueToday.length ? (
-            <CardList inset={54}>
-              {dueToday.slice(0, 3).map(t => (
-                <TaskRow
-                  key={t.id}
-                  task={t}
-                  checked={t.done}
-                  onToggle={() => toggleTask(t.id)}
-                  onOpen={() => nav.navigate('TaskDetail', { id: t.id })}
-                />
-              ))}
-            </CardList>
-          ) : (
-            <Card style={styles.none}>
-              <AppText variant="body" color={colors.inkMuted}>
-                {today.failed
-                  ? errorMessage(today.error)
-                  : 'Nothing due today.'}
-              </AppText>
-            </Card>
-          )}
+          {today.firstLoad || dueToday.length ? (
+            <>
+              <Eyebrow
+                label="Due today"
+                action={`See all ${remaining}`}
+                onAction={() => nav.navigate('Tasks', { status: 'today' })}
+              />
+              {today.firstLoad ? (
+                <Card>
+                  <ShimmerRows rows={3} />
+                </Card>
+              ) : (
+                <CardList inset={54}>
+                  {dueToday.slice(0, 3).map(t => (
+                    <TaskRow
+                      key={t.id}
+                      task={t}
+                      checked={t.done}
+                      onToggle={() => toggleTask(t.id)}
+                      onOpen={() => nav.navigate('TaskDetail', { id: t.id })}
+                    />
+                  ))}
+                </CardList>
+              )}
+            </>
+          ) : null}
 
-          <Eyebrow
-            label="Open alerts"
-            action={`See all ${alertCount}`}
-            onAction={() => nav.navigate('Alerts')}
-          />
-          <CardList inset={68}>
-            {alerts.slice(0, 3).map(a => (
-              <AlertRow key={a.id} alert={a} />
-            ))}
-          </CardList>
+          {alerts.length ? (
+            <>
+              <Eyebrow
+                label="Open alerts"
+                action={`See all ${alertCount}`}
+                onAction={() => nav.navigate('Alerts')}
+              />
+              <CardList inset={68}>
+                {alerts.slice(0, 3).map(a => (
+                  <AlertRow key={a.id} alert={a} />
+                ))}
+              </CardList>
+            </>
+          ) : null}
         </View>
       </ScreenScroll>
     </View>
@@ -298,7 +309,6 @@ function GlanceStrip({ title, counts, alert = false, onOpen, style }: StripProps
 const styles = StyleSheet.create({
   stripTitle: { marginBottom: vs(6) },
   gap: { marginTop: vs(14) },
-  none: { paddingHorizontal: s(16), paddingVertical: vs(16) },
   root: { flex: 1, backgroundColor: colors.ground },
   header: { paddingBottom: vs(18) },
   topRow: { flexDirection: 'row', alignItems: 'center', gap: s(10) },
@@ -328,8 +338,9 @@ const styles = StyleSheet.create({
   date: { marginTop: vs(4) },
   content: { paddingHorizontal: space.gutter, paddingTop: vs(14) },
   pair: { flexDirection: 'row', gap: s(12), marginTop: vs(10) },
-  pairItem: { flex: 1 },
-  glance: { flexDirection: 'row' },
+  pairItem: { flex: 1, ...shadow.card },
+  reminder: { marginTop: vs(10), ...shadow.card },
+  glance: { flexDirection: 'row', borderRadius: radius.sm },
   glanceRule: { width: hairline, backgroundColor: colors.line },
   stat: { flex: 1, paddingHorizontal: s(10), paddingVertical: vs(9) },
 });

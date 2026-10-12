@@ -4,7 +4,7 @@ import type { LucideIcon } from 'lucide-react-native';
 import { colors, fonts, fs, ms, radius, s, shadow, vs } from '../theme';
 import { AppText } from './AppText';
 
-type Variant = 'primary' | 'secondary' | 'outline' | 'danger';
+type Variant = 'primary' | 'secondary' | 'outline' | 'plain' | 'danger';
 
 type Props = {
   label: string;
@@ -27,6 +27,8 @@ const palette: Record<Variant, { bg: string; ink: string; border?: string }> = {
   primary: { bg: colors.yellow, ink: colors.yellowInk },
   secondary: { bg: colors.teal, ink: colors.white },
   outline: { bg: colors.surface, ink: colors.ink, border: colors.line },
+  // A white button with no border, for quiet actions on a card-coloured page.
+  plain: { bg: colors.surface, ink: colors.ink },
   danger: { bg: colors.red, ink: colors.white },
 };
 
