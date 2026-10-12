@@ -1,0 +1,4 @@
+storeFile=trustdiary-release.jks
+storePassword=CHANGE_ME
+keyAlias=trustdiary
+keyPassword=CHANGE_ME

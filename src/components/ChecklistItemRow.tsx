@@ -29,7 +29,7 @@ type Props = {
 };
 
 const options: Choice<LabStatus>[] = [
-  { key: 'done', label: 'Done', icon: Check, tone: 'teal' },
+  { key: 'done', label: 'Done', icon: Check, tone: 'green' },
   { key: 'deviation', label: 'Deviation', icon: TriangleAlert, tone: 'amber' },
   { key: 'na', label: 'N/A', icon: Ban, tone: 'slate' },
 ];
@@ -80,6 +80,7 @@ export function ChecklistItemRow({
       {locked ? null : (
         <ChoiceGroup
           clearable
+          vivid
           style={styles.block}
           options={options}
           value={item.status}

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { Plus } from 'lucide-react-native';
 import { AppText } from '../components/AppText';
 import { Card } from '../components/Card';
@@ -78,8 +78,16 @@ export function TasksScreen() {
   const nav = useNavigation<any>();
   const everyone = seesAllDepartments();
 
+  // Home can ask for a chip, e.g. Overdue.
+  const wanted: TaskStatus | undefined = useRoute<any>().params?.status;
   const [box, setBox] = useState<TaskBox>('mine');
-  const [status, setStatus] = useState<TaskStatus>('today');
+  const [status, setStatus] = useState<TaskStatus>(wanted ?? 'today');
+  useEffect(() => {
+    if (wanted) {
+      setBox('mine');
+      setStatus(wanted);
+    }
+  }, [wanted]);
   const [search, setSearch] = useState('');
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [f, setF] = useState(blank);

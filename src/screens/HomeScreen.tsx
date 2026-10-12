@@ -2,14 +2,9 @@ import React, { useCallback } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import {
-  ArrowRight,
   Bell,
   Calendar,
-  ClipboardCheck,
-  Moon,
-  NotebookPen,
   Plus,
-  Sun,
   TriangleAlert,
 } from 'lucide-react-native';
 import { AlertRow } from '../components/AlertRow';
@@ -24,18 +19,14 @@ import { IconTile } from '../components/IconTile';
 import { LogoMark } from '../components/Logo';
 import { MeetingCard } from '../components/MeetingCard';
 import { ScreenScroll } from '../components/ScreenScroll';
-import { ShiftCard } from '../components/ShiftCard';
 import { Stat } from '../components/Stat';
 import { StatusBarShade } from '../components/StatusBarShade';
 import { ShimmerRows } from '../components/Shimmer';
 import { TaskRow } from '../components/TaskRow';
 import { TealHeader } from '../components/TealHeader';
 import { currentUser } from '../data/user';
-import { dueBy, Phase } from '../lab/model';
-import { useLabUnit } from '../lab/useLabUnit';
-import { errorMessage, useAppSelector } from '../store';
-import { useActivityDayQuery } from '../store/api/activityApi';
-import { useLabStateQuery } from '../store/api/labApi';
+import { errorMessage } from '../store';
+import { GlanceCounts, useHomeSummaryQuery } from '../store/api/homeApi';
 import { todayIso } from '../store/slices/labSlice';
 import { useNextMeeting } from '../diary/useDiary';
 import { useToggleTaskMutation } from '../store/api/tasksApi';
@@ -63,67 +54,22 @@ const HOME_ALERTS = { status: 'open' } as const;
 const FRESH = [
   'Tasks',
   'Alerts',
-  'LabState',
-  'Activity',
   'Diary',
+  'Meetings',
+  'Reminders',
+  'Projects',
   'Notices',
 ] as const;
 
 export function HomeScreen() {
   const fresh = useFresh(FRESH);
   const nav = useNavigation<any>();
-  // Older saved sign-ins have no flag yet: show the lab until the next sign-in.
-  const lab = useAppSelector(st => st.session.user?.lab ?? true);
-  const { unit } = useLabUnit();
-  // Everyone else signs off a daily activity log; admin and CMD have both.
-  const activity = useAppSelector(
-    st => !(st.session.user?.lab ?? true) || !!st.session.user?.sees_all,
-  );
-  const activityDay = useActivityDayQuery({}, { skip: !activity });
-  const activityState = activityDay.data?.state;
   const todayDate = todayIso();
-  const openingState = useLabStateQuery(
-    { unit: unit?.key ?? '', date: todayDate, phase: 'opening' },
-    { skip: !unit || !lab },
-  );
-  const closingState = useLabStateQuery(
-    { unit: unit?.key ?? '', date: todayDate, phase: 'closing' },
-    { skip: !unit || !lab },
-  );
-
-  const shift = (phase: Phase) => {
-    const data = phase === 'opening' ? openingState.data : closingState.data;
-    if (data?.run?.signed) {
-      return {
-        signed: true,
-        state: 'Signed',
-        detail: `${data.run.signedAt?.split(', ')[1] ?? data.run.signedAt} · ${
-          data.run.signedBy
-        }`,
-      };
-    }
-    if (data?.run) {
-      const done = data.summary.total - data.summary.pending;
-      return {
-        signed: false,
-        state: 'In progress',
-        detail: `${done} of ${data.summary.total} complete`,
-      };
-    }
-    return {
-      signed: false,
-      state: 'Not started',
-      detail: `Due by ${dueBy[phase]}`,
-    };
-  };
-  const opening = shift('opening');
-  const closing = shift('closing');
 
   const { meeting } = useNextMeeting();
   const today = useTaskList({ box: 'mine', status: 'today' });
   const [toggleTask] = useToggleTaskMutation();
   const dueToday = today.rows;
-  const overdue = today.counts?.overdue ?? 0;
   const remaining = today.counts?.today ?? 0;
   // The bell: asked again every minute, and whenever Home comes back in view.
   const notices = useUnreadCountQuery(undefined, { pollingInterval: 60000 });
@@ -134,16 +80,27 @@ export function HomeScreen() {
       refetchNotices();
     }, [refetchNotices]),
   );
+  const glance = useHomeSummaryQuery().currentData;
+  const openModule = (status: 'today' | 'overdue') => (box: keyof GlanceCounts) => {
+    if (box === 'tasks') {
+      nav.navigate('Tasks', { status });
+    } else if (box === 'meetings') {
+      nav.navigate('Meetings');
+    } else if (box === 'reminders') {
+      nav.navigate('Reminders');
+    } else {
+      nav.navigate('Projects');
+    }
+  };
   const openAlerts = useAlertList(HOME_ALERTS);
   const alerts = openAlerts.rows;
   const alertCount = openAlerts.counts?.open ?? 0;
-  const redAlerts = openAlerts.counts?.red ?? 0;
 
   return (
     <View style={styles.root}>
       <StatusBarShade />
       <ScreenScroll padded={false} onRefresh={fresh}>
-        <TealHeader arcHeight={vs(330)} topGap={10} style={styles.header}>
+        <TealHeader arcHeight={vs(250)} topGap={10} style={styles.header}>
           <View style={styles.topRow}>
             <IconTile size={40} bg={colors.white}>
               <LogoMark size={26} />
@@ -203,94 +160,9 @@ export function HomeScreen() {
             iconColor={colors.onTealSoft}
             style={styles.date}
           />
-
-          {lab ? (
-            <>
-              <AppText
-                variant="eyebrow"
-                color={colors.onTealSoft}
-                style={styles.headEyebrow}
-              >
-                LAB CHECKLISTS TODAY
-              </AppText>
-              <View style={styles.shiftRow}>
-                <ShiftCard
-                  icon={Sun}
-                  name="Opening"
-                  state={opening.state}
-                  detail={opening.detail}
-                  signed={opening.signed}
-                  onPress={() => nav.navigate('Lab', { shift: 'opening' })}
-                />
-                <ShiftCard
-                  icon={Moon}
-                  name="Closing"
-                  state={closing.state}
-                  detail={closing.detail}
-                  signed={closing.signed}
-                  onPress={() => nav.navigate('Lab', { shift: 'closing' })}
-                />
-              </View>
-            </>
-          ) : null}
         </TealHeader>
 
         <View style={styles.content}>
-          {lab ? (
-            <Button
-              label={
-                opening.signed && closing.signed
-                  ? 'View lab checklist'
-                  : opening.state === 'Not started'
-                  ? 'Start lab checklist'
-                  : 'Continue lab checklist'
-              }
-              spread
-              iconRight={ArrowRight}
-              onPress={() =>
-                nav.navigate('Lab', {
-                  shift: opening.signed ? 'closing' : 'opening',
-                })
-              }
-              leading={
-                <IconTile size={32} bg={colors.yellowInk}>
-                  <ClipboardCheck
-                    size={s(17)}
-                    color={colors.yellow}
-                    strokeWidth={1.9}
-                  />
-                </IconTile>
-              }
-            />
-          ) : null}
-
-          {activity ? (
-            <Button
-              label={
-                activityState === 'signed' || activityState === 'late'
-                  ? 'Activity log signed off'
-                  : activityState === 'overdue'
-                  ? 'Activity log overdue · sign off now'
-                  : activityDay.data?.log
-                  ? "Continue today's activity log"
-                  : "Write today's activity log"
-              }
-              spread
-              iconRight={ArrowRight}
-              onPress={() => nav.navigate('Activity')}
-              leading={
-                <IconTile size={32} bg={colors.yellowInk}>
-                  <NotebookPen
-                    size={s(17)}
-                    color={colors.yellow}
-                    strokeWidth={1.9}
-                  />
-                </IconTile>
-              }
-              style={lab ? styles.second : undefined}
-            />
-          ) : null}
-
           <View style={styles.pair}>
             <Button
               label="Raise alert"
@@ -313,22 +185,18 @@ export function HomeScreen() {
           </View>
 
           <Eyebrow label="At a glance" />
-          <Card style={styles.glance}>
-            <Stat value={remaining} label="Due today" style={styles.stat} />
-            <View style={styles.glanceRule} />
-            <Stat
-              value={overdue}
-              label="Overdue"
-              tone={overdue ? colors.red : colors.ink}
-              style={styles.stat}
-            />
-            <View style={styles.glanceRule} />
-            <Stat
-              value={alertCount}
-              label={`Alerts · ${redAlerts} red`}
-              style={styles.stat}
-            />
-          </Card>
+          <GlanceStrip
+            title="Due today"
+            counts={glance?.dueToday}
+            onOpen={openModule('today')}
+          />
+          <GlanceStrip
+            title="Overdue"
+            counts={glance?.overdue}
+            alert
+            onOpen={openModule('overdue')}
+            style={styles.gap}
+          />
 
           <MeetingCard
             meeting={meeting}
@@ -340,7 +208,7 @@ export function HomeScreen() {
           <Eyebrow
             label="Due today"
             action={`See all ${remaining}`}
-            onAction={() => nav.navigate('Tasks')}
+            onAction={() => nav.navigate('Tasks', { status: 'today' })}
           />
           {today.firstLoad ? (
             <Card>
@@ -384,7 +252,52 @@ export function HomeScreen() {
   );
 }
 
+type StripProps = {
+  title: string;
+  counts: GlanceCounts | undefined;
+  // Numbers above zero are shown in red.
+  alert?: boolean;
+  onOpen: (box: keyof GlanceCounts) => void;
+  style?: object;
+};
+
+// One row of four numbers: tasks, meetings, alerts, projects.
+function GlanceStrip({ title, counts, alert = false, onOpen, style }: StripProps) {
+  const boxes: { key: keyof GlanceCounts; label: string }[] = [
+    { key: 'tasks', label: 'Tasks' },
+    { key: 'meetings', label: 'Meetings' },
+    { key: 'reminders', label: 'Reminders' },
+    { key: 'projects', label: 'Projects' },
+  ];
+  return (
+    <View style={style}>
+      <AppText variant="metaStrong" color={colors.inkSoft} style={styles.stripTitle}>
+        {title}
+      </AppText>
+      <Card style={styles.glance}>
+        {boxes.map((b, i) => {
+          const n = counts?.[b.key];
+          return (
+            <React.Fragment key={b.key}>
+              {i ? <View style={styles.glanceRule} /> : null}
+              <Pressable style={styles.stat} onPress={() => onOpen(b.key)}>
+                <Stat
+                  value={n ?? '–'}
+                  label={b.label}
+                  tone={alert && n ? colors.red : colors.ink}
+                />
+              </Pressable>
+            </React.Fragment>
+          );
+        })}
+      </Card>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  stripTitle: { marginBottom: vs(6) },
+  gap: { marginTop: vs(14) },
   none: { paddingHorizontal: s(16), paddingVertical: vs(16) },
   root: { flex: 1, backgroundColor: colors.ground },
   header: { paddingBottom: vs(18) },
@@ -413,13 +326,10 @@ const styles = StyleSheet.create({
   greeting: { marginTop: vs(14) },
   name: { fontSize: fs(27), lineHeight: fs(34) },
   date: { marginTop: vs(4) },
-  headEyebrow: { marginTop: vs(16), marginBottom: vs(8) },
-  shiftRow: { flexDirection: 'row', gap: s(10) },
   content: { paddingHorizontal: space.gutter, paddingTop: vs(14) },
   pair: { flexDirection: 'row', gap: s(12), marginTop: vs(10) },
-  second: { marginTop: vs(10) },
   pairItem: { flex: 1 },
   glance: { flexDirection: 'row' },
   glanceRule: { width: hairline, backgroundColor: colors.line },
-  stat: { paddingHorizontal: s(14), paddingVertical: vs(9) },
+  stat: { flex: 1, paddingHorizontal: s(10), paddingVertical: vs(9) },
 });

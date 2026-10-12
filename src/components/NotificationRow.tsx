@@ -1,6 +1,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import {
+  AlarmClock,
   Bell,
   ClipboardPen,
   CalendarDays,
@@ -33,6 +34,7 @@ const icons: Record<NoticeLink['type'], LucideIcon> = {
   discussion: MessageCircle,
   project: FolderKanban,
   activity: ClipboardPen,
+  reminder: AlarmClock,
 };
 
 type Props = { notice: ApiNotice; onPress: () => void };

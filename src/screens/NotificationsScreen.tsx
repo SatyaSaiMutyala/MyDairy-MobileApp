@@ -69,6 +69,8 @@ export function NotificationsScreen() {
         return nav.navigate('ProjectDetail', { id: Number(link.id) });
       case 'report':
         return nav.navigate('DailyReport', { dept: String(link.id) });
+      case 'reminder':
+        return nav.navigate('ReminderDetail', { id: Number(link.id) });
       case 'activity':
         return nav.navigate('Tabs', {
           screen: 'Activity',

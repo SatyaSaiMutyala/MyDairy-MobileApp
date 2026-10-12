@@ -21,6 +21,7 @@ const byModule: Record<string, Tag[]> = {
   discussion: ['Discussions', 'Discussion'],
   project: ['Projects', 'Project', 'Tasks'],
   activity: ['Activity', 'ActivityHistory', 'ActivityOverview'],
+  reminder: ['Reminders', 'Reminder'],
 };
 const tagsFor = (kind?: string): Tag[] => [
   'Notices',

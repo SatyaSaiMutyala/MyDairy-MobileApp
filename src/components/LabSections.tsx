@@ -5,7 +5,6 @@ import type { Activity, LabItem, LabSection } from '../lab/model';
 import { colors, s, vs } from '../theme';
 import { AppText } from './AppText';
 import { Card } from './Card';
-import { CardList } from './CardList';
 import { IconTile } from './IconTile';
 import { Pill } from './Pill';
 
@@ -97,7 +96,13 @@ export function LabSections({ sections, items, renderRow, onlyActioned = false }
               )}
               <ChevronUp size={s(20)} color={colors.inkSoft} strokeWidth={2} />
             </Pressable>
-            <CardList inset={14}>{rows.map(renderRow)}</CardList>
+            {rows.map(a => {
+              return (
+                <Card key={a.key} style={styles.card}>
+                  {renderRow(a)}
+                </Card>
+              );
+            })}
           </View>
         );
       })}
@@ -106,6 +111,7 @@ export function LabSections({ sections, items, renderRow, onlyActioned = false }
 }
 
 const styles = StyleSheet.create({
+  card: { marginTop: vs(10) },
   folded: {
     flexDirection: 'row',
     alignItems: 'center',

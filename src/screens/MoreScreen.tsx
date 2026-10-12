@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import {
+  AlarmClock,
   ClipboardList,
   FileText,
   KeyRound,
@@ -41,6 +42,12 @@ const work: Link[] = [
     icon: Bell,
     title: 'Notifications',
     detail: 'What needs you: tasks, alerts, invitations',
+  },
+  {
+    to: 'Reminders',
+    icon: AlarmClock,
+    title: 'Reminders',
+    detail: 'Nudge yourself or a colleague at the right time',
   },
   {
     to: 'Alerts',

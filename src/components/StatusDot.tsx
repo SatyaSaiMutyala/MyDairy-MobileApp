@@ -26,7 +26,7 @@ export function StatusDot({ status, onTeal = false }: Props) {
   const bg = onTeal
     ? colors.white
     : status === 'done'
-    ? colors.teal
+    ? colors.green
     : status === 'deviation'
     ? colors.amber
     : colors.slate;

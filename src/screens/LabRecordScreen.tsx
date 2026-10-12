@@ -75,7 +75,7 @@ export function LabRecordScreen() {
             size="sm"
             value={record.done}
             label="Done"
-            dot={{ color: colors.teal }}
+            dot={{ color: colors.green }}
           />
           <Stat
             size="sm"

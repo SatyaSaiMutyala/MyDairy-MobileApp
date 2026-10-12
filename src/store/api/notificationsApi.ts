@@ -15,7 +15,8 @@ export type NoticeLink = {
     | 'meeting'
     | 'discussion'
     | 'project'
-    | 'activity';
+    | 'activity'
+    | 'reminder';
   id: number | string;
 };
 

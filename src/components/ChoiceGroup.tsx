@@ -21,6 +21,9 @@ type Props<K extends string> = {
   disabled?: boolean;
   // Tapping the chosen option again clears it.
   clearable?: boolean;
+  // Every option shows its own colour even when not chosen (a tinted chip);
+  // the chosen one turns solid. For status choices like Done / Deviation.
+  vivid?: boolean;
   style?: ViewStyle;
 };
 
@@ -32,6 +35,18 @@ const tones: Record<ChoiceTone, { bg: string; ink: string; border: string }> = {
   green: { bg: colors.greenTint, ink: colors.greenInk, border: colors.green },
 };
 
+// The vivid look: a white outlined button in its colour when idle, solid when chosen.
+const vividTones: Record<
+  ChoiceTone,
+  { idleBg: string; idleInk: string; border: string; onBg: string; onInk: string }
+> = {
+  teal: { idleBg: colors.surface, idleInk: colors.tealDeep, border: colors.teal, onBg: colors.teal, onInk: colors.white },
+  slate: { idleBg: colors.surface, idleInk: colors.inkSoft, border: colors.slate, onBg: colors.slate, onInk: colors.white },
+  amber: { idleBg: colors.surface, idleInk: colors.amberInk, border: colors.amber, onBg: colors.amber, onInk: colors.white },
+  red: { idleBg: colors.surface, idleInk: colors.redInk, border: colors.red, onBg: colors.red, onInk: colors.white },
+  green: { idleBg: colors.surface, idleInk: colors.greenInk, border: colors.green, onBg: colors.green, onInk: colors.white },
+};
+
 // Pick one of a few options, shown side by side on a light surface.
 export function ChoiceGroup<K extends string>({
   options,
@@ -40,6 +55,7 @@ export function ChoiceGroup<K extends string>({
   label,
   disabled = false,
   clearable = false,
+  vivid = false,
   style,
 }: Props<K>) {
   return (
@@ -49,11 +65,12 @@ export function ChoiceGroup<K extends string>({
           {label}
         </AppText>
       ) : null}
-      <View style={styles.track}>
+      <View style={vivid ? styles.vividTrack : styles.track}>
         {options.map(o => {
           const on = o.key === value;
           const tone = tones[o.tone ?? 'teal'];
-          const ink = on ? tone.ink : colors.inkSoft;
+          const vt = vividTones[o.tone ?? 'teal'];
+          const ink = vivid ? (on ? vt.onInk : vt.idleInk) : on ? tone.ink : colors.inkSoft;
           const Icon = o.icon;
           return (
             <Pressable
@@ -64,7 +81,13 @@ export function ChoiceGroup<K extends string>({
               onPress={() => onChange(on && clearable ? null : o.key)}
               style={[
                 styles.option,
-                on && { backgroundColor: tone.bg, borderColor: tone.border },
+                vivid
+                  ? {
+                      minHeight: vs(34),
+                      backgroundColor: on ? vt.onBg : vt.idleBg,
+                      borderColor: vt.border,
+                    }
+                  : on && { backgroundColor: tone.bg, borderColor: tone.border },
               ]}>
               {Icon ? (
                 <Icon size={s(14)} color={ink} strokeWidth={on ? 2.4 : 1.9} />
@@ -87,6 +110,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     backgroundColor: colors.fill,
   },
+  vividTrack: { flexDirection: 'row', gap: s(8) },
   option: {
     flex: 1,
     minHeight: vs(30),

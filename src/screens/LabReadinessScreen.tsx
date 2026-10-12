@@ -293,7 +293,7 @@ export function LabReadinessScreen() {
                 size="sm"
                 value={summary.done}
                 label="Done"
-                dot={{ color: colors.teal }}
+                dot={{ color: colors.green }}
               />
               <Stat
                 size="sm"

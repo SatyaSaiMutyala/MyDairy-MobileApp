@@ -82,6 +82,8 @@ export function openLink(link: NoticeLink | null | undefined) {
       return navigationRef.navigate('ProjectDetail', { id: Number(id) });
     case 'report':
       return navigationRef.navigate('DailyReport', { dept: String(id) });
+    case 'reminder':
+      return navigationRef.navigate('ReminderDetail', { id: Number(id) });
     case 'activity':
       return navigationRef.navigate('Tabs', {
         screen: 'Activity',

@@ -90,6 +90,8 @@ export const ALL_TAGS = [
   'Activity',
   'ActivityHistory',
   'ActivityOverview',
+  'Reminders',
+  'Reminder',
   'Diary',
   'DiaryInvites',
   'DiaryEntry',

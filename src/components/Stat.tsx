@@ -7,6 +7,8 @@ import { Dot } from './Dot';
 type Props = {
   value: number | string;
   label: string;
+  // A second, smaller line under the label, e.g. "Due today".
+  sub?: string;
   tone?: string;
   size?: 'lg' | 'sm';
   dot?: { color: string; hollow?: boolean };
@@ -17,6 +19,7 @@ type Props = {
 export function Stat({
   value,
   label,
+  sub,
   tone = colors.ink,
   size = 'lg',
   dot,
@@ -37,6 +40,11 @@ export function Stat({
         color={size === 'lg' ? colors.inkSoft : colors.inkMuted}>
         {label}
       </AppText>
+      {sub ? (
+        <AppText variant="meta" numberOfLines={1} color={colors.inkFaint}>
+          {sub}
+        </AppText>
+      ) : null}
     </View>
   );
 }

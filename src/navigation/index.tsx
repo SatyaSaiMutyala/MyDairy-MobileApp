@@ -32,6 +32,9 @@ import { LabSignOffScreen } from '../screens/LabSignOffScreen';
 import { MoreScreen } from '../screens/MoreScreen';
 import { PreOpsScreen } from '../screens/PreOpsScreen';
 import { RaiseAlertScreen } from '../screens/RaiseAlertScreen';
+import { ReminderDetailScreen } from '../screens/ReminderDetailScreen';
+import { ReminderFormScreen } from '../screens/ReminderFormScreen';
+import { RemindersScreen } from '../screens/RemindersScreen';
 import { ResolveAlertScreen } from '../screens/ResolveAlertScreen';
 import { ResolveTaskScreen } from '../screens/ResolveTaskScreen';
 import { ForceUpdateDialog } from '../components/ForceUpdateDialog';
@@ -160,6 +163,9 @@ export function RootNavigator() {
         <Stack.Screen name="ProjectDetail" component={ProjectDetailScreen} />
         <Stack.Screen name="ProjectForm" component={ProjectFormScreen} />
         <Stack.Screen name="MilestoneForm" component={MilestoneFormScreen} />
+        <Stack.Screen name="Reminders" component={RemindersScreen} />
+        <Stack.Screen name="ReminderDetail" component={ReminderDetailScreen} />
+        <Stack.Screen name="ReminderForm" component={ReminderFormScreen} />
         <Stack.Screen name="RaiseAlert" component={RaiseAlertScreen} />
         <Stack.Screen name="ResolveAlert" component={ResolveAlertScreen} />
         <Stack.Screen name="PreOps" component={PreOpsScreen} />
