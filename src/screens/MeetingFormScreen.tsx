@@ -16,6 +16,7 @@ import { PersonPicker } from '../components/PersonPicker';
 import { PriorityPicker } from '../components/PriorityPicker';
 import { RepeatFields } from '../components/RepeatFields';
 import { RepeatItem } from '../components/RepeatItem';
+import { SearchDropdown } from '../components/SearchDropdown';
 import { ShimmerRows } from '../components/Shimmer';
 import { SwitchRow } from '../components/SwitchRow';
 import { TextArea } from '../components/TextArea';
@@ -28,6 +29,7 @@ import {
   Attendance,
   MeetingMeta,
   MeetingStatus,
+  useMeetingClientsQuery,
   useMeetingMetaQuery,
   useMeetingQuery,
   useSaveMeetingMutation,
@@ -56,6 +58,7 @@ type Agenda = {
   duration: string;
   notes: string;
   minutes: string;
+  decision: string;
 };
 type Action = {
   key: string;
@@ -66,6 +69,7 @@ type Action = {
   due: string;
   priority: Priority;
   done: boolean;
+  status: 'open' | 'progress' | 'done' | 'dropped';
 };
 
 const priorityNames = {
@@ -122,8 +126,39 @@ function MeetingForm({
   const statuses = useMemo(() => opt(meta.statuses), [meta]);
   const agendaTypes = useMemo(() => opt(meta.agendaTypes), [meta]);
 
+  // Client hospitals the meeting can be shared with. The list may be empty
+  // when the server has no portal link; the field then just offers "None".
+  const clients = useMeetingClientsQuery();
+  const clientOptions = useMemo<DropdownOption[]>(() => {
+    const list: DropdownOption[] = (clients.data ?? []).map(c => ({
+      id: c.code,
+      label: c.name,
+      detail: [c.city, c.code].filter(Boolean).join(' · '),
+    }));
+    // A client the meeting already carries but the list no longer has.
+    if (was?.clientCode && !list.some(c => c.id === was.clientCode)) {
+      list.unshift({ id: was.clientCode, label: was.clientName ?? was.clientCode });
+    }
+    return [{ id: '', label: 'None — internal meeting' }, ...list];
+  }, [clients.data, was]);
+
+  // Searched on the phone: the list is short and already loaded.
+  const [clientSearch, setClientSearch] = useState('');
+  const shownClients = useMemo(() => {
+    const q = clientSearch.trim().toLowerCase();
+    if (!q) {
+      return clientOptions;
+    }
+    return clientOptions.filter(
+      c =>
+        c.id === '' ||
+        `${c.label} ${c.detail ?? ''}`.toLowerCase().includes(q),
+    );
+  }, [clientOptions, clientSearch]);
+
   const [title, setTitle] = useState(was?.title ?? '');
   const [type, setType] = useState(was?.type ?? 'ops');
+  const [clientCode, setClientCode] = useState(was?.clientCode ?? '');
   const [status, setStatus] = useState<MeetingStatus>(
     was?.status ?? 'scheduled',
   );
@@ -176,6 +211,7 @@ function MeetingForm({
       duration: String(a.duration),
       notes: a.notes ?? '',
       minutes: a.minutesNotes ?? '',
+      decision: a.decision ?? '',
     })) ?? [],
   );
   const [decisions, setDecisions] = useState<string[]>(was?.decisions ?? []);
@@ -190,6 +226,7 @@ function MeetingForm({
       due: a.due ?? '',
       priority: priorityNames[a.priority] ?? 'Medium',
       done: a.done,
+      status: a.status,
     })) ?? [],
   );
   const [nextDate, setNextDate] = useState(was?.nextMeeting.date ?? '');
@@ -241,6 +278,10 @@ function MeetingForm({
         body: {
           title: title.trim(),
           type,
+          client_code: clientCode || null,
+          client_name: clientCode
+            ? clientOptions.find(c => c.id === clientCode)?.label ?? null
+            : null,
           status,
           date,
           time: time || null,
@@ -275,6 +316,7 @@ function MeetingForm({
               duration: Number(a.duration) || 10,
               notes: a.notes.trim() || null,
               minutes_notes: a.minutes.trim() || null,
+              decision: a.decision.trim() || null,
             })),
           action_items: actions
             .filter(a => a.text.trim())
@@ -285,7 +327,11 @@ function MeetingForm({
               assignee_user_id: a.assigneeId,
               due_date: a.due || null,
               priority: apiPriority(a.priority),
-              status: a.done ? 'done' : 'open',
+              // Ticking "done" closes it; unticking an item the client had
+              // marked in progress keeps that status.
+              status: a.done
+                ? a.status === 'dropped' ? 'dropped' : 'done'
+                : a.status === 'progress' ? 'progress' : 'open',
             })),
         },
       }).unwrap();
@@ -343,6 +389,29 @@ function MeetingForm({
           value={type}
           onChange={setType}
         />
+        <SearchDropdown
+          label="Client hospital"
+          placeholder="None — internal meeting"
+          searchPlaceholder="Search by hospital name, city or code"
+          emptyText={
+            clients.data?.length
+              ? `No hospital matches "${clientSearch.trim()}".`
+              : 'Client list unavailable right now.'
+          }
+          selected={clientOptions.find(c => c.id === clientCode)}
+          onChange={c => setClientCode(c.id)}
+          options={shownClients}
+          search={clientSearch}
+          onSearch={setClientSearch}
+          loading={clients.isLoading}
+          error={clients.error ? errorMessage(clients.error) : undefined}
+        />
+        {clientCode ? (
+          <AppText variant="meta" color={colors.inkMuted} style={styles.hint}>
+            This meeting, its agenda and action items show on the client's
+            portal, and they can respond there.
+          </AppText>
+        ) : null}
         <Dropdown
           label="Status"
           options={statuses}
@@ -556,13 +625,22 @@ function MeetingForm({
               placeholder="What to prepare"
             />
             {minutesMode ? (
-              <TextArea
-                label="Minutes / outcome"
-                value={a.minutes}
-                onChangeText={v => patchAgenda(a.key, { minutes: v })}
-                maxLength={5000}
-                placeholder="What was said and decided"
-              />
+              <>
+                <TextArea
+                  label="Minutes / discussion"
+                  value={a.minutes}
+                  onChangeText={v => patchAgenda(a.key, { minutes: v })}
+                  maxLength={5000}
+                  placeholder="What was said"
+                />
+                <TextArea
+                  label="Decision"
+                  value={a.decision}
+                  onChangeText={v => patchAgenda(a.key, { decision: v })}
+                  maxLength={5000}
+                  placeholder="What was decided on this item"
+                />
+              </>
             ) : null}
           </RepeatItem>
         ))}
@@ -585,6 +663,7 @@ function MeetingForm({
                 duration: '10',
                 notes: '',
                 minutes: '',
+                decision: '',
               },
             ])
           }
@@ -703,6 +782,7 @@ function MeetingForm({
               {
                 key: newKey('x'),
                 serverId: null,
+                status: 'open',
                 text: '',
                 assigneeId: null,
                 assignee: '',

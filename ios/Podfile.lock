@@ -1869,6 +1869,11 @@ PODS:
     - ReactNativeDependencies
     - RNFBApp
     - Yoga
+  - RNNotifee (9.1.8):
+    - React-Core
+    - RNNotifee/NotifeeCore (= 9.1.8)
+  - RNNotifee/NotifeeCore (9.1.8):
+    - React-Core
   - RNScreens (4.28.0):
     - hermes-engine
     - RCTRequired
@@ -2058,6 +2063,7 @@ DEPENDENCIES:
   - ReactNativeDependencies (from `../node_modules/react-native/third-party-podspecs/ReactNativeDependencies.podspec`)
   - "RNFBApp (from `../node_modules/@react-native-firebase/app`)"
   - "RNFBMessaging (from `../node_modules/@react-native-firebase/messaging`)"
+  - "RNNotifee (from `../node_modules/@notifee/react-native`)"
   - RNScreens (from `../node_modules/react-native-screens`)
   - RNSVG (from `../node_modules/react-native-svg`)
   - SocketRocket (from `build/rndeps-facades/SocketRocket`)
@@ -2258,6 +2264,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/@react-native-firebase/app"
   RNFBMessaging:
     :path: "../node_modules/@react-native-firebase/messaging"
+  RNNotifee:
+    :path: "../node_modules/@notifee/react-native"
   RNScreens:
     :path: "../node_modules/react-native-screens"
   RNSVG:
@@ -2368,6 +2376,7 @@ SPEC CHECKSUMS:
   ReactNativeDependencies: 94c922c39e0e6150ee9ad05e2ca1946e0ef55783
   RNFBApp: b2a6488cfc84694ae79abb10474c0aa030722246
   RNFBMessaging: 90bab2ad25b0e6fc61b1dda8e9dae53f48993a69
+  RNNotifee: 5e3b271e8ea7456a36eec994085543c9adca9168
   RNScreens: 3c977859fd13e67dc4ebfc24afb4d7c2e894db61
   RNSVG: 4da2e0a724c48a841e0dbfbdc7db39286c050b61
   SocketRocket: 37aec555668fb852ec12e3c0de59a86ca58f0871

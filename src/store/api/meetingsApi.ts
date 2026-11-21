@@ -7,12 +7,35 @@ import type { Recurring } from '../../utils/recur';
 
 export type MeetingStatus = 'draft' | 'scheduled' | 'inprogress' | 'completed' | 'cancelled';
 export type Attendance = 'present' | 'absent' | 'late';
+export type Rsvp = 'pending' | 'yes' | 'no';
+export type ActionStatus = 'open' | 'progress' | 'done' | 'dropped';
+
+// A client hospital the meeting can be tagged with; the meeting then shows on
+// that hospital's Client Portal (MRM page) and they can respond there.
+export type MeetingClient = { code: string; name: string; city: string };
+
+// A note the client left on an agenda item from their portal.
+export type AgendaResponse = { id: number; text: string; by: string; at: string | null };
+
+// One line of an action item's follow-up history. `client` is set when the
+// client hospital recorded it from their portal.
+export type ActionUpdate = {
+  id: number;
+  status: ActionStatus;
+  note: string | null;
+  newDue: string | null;
+  on: string | null;
+  by: string;
+  client: string | null;
+};
 
 export type ApiMeeting = {
   id: number;
   title: string;
   type: string;
   typeLabel: string;
+  clientCode: string | null;
+  clientName: string | null;
   status: MeetingStatus;
   statusLabel: string;
   date: string | null;
@@ -31,12 +54,24 @@ export type ApiMeeting = {
   recurring: Recurring | null;
   seriesId: number | null;
   completedAt: string | null;
+  // Set once the minutes are signed off (by the approve step, or by completing).
+  minutesApproved: { by: string; at: string | null } | null;
+  // Organiser/admin, meeting In progress, minutes not yet approved.
+  mineToApprove: boolean;
   organiserId: number;
   organiserName: string;
   isOwner: boolean;
   mineToEdit: boolean;
   mineToComplete: boolean;
-  attendees: { id: number; userId: number | null; name: string; role: string | null; attendance: Attendance }[];
+  attendees: {
+    id: number;
+    userId: number | null;
+    name: string;
+    role: string | null;
+    attendance: Attendance;
+    rsvp: Rsvp;
+    rsvpNote: string | null;
+  }[];
   agenda: {
     id: number;
     title: string;
@@ -47,6 +82,8 @@ export type ApiMeeting = {
     duration: number;
     notes: string | null;
     minutesNotes: string | null;
+    decision: string | null;
+    responses: AgendaResponse[];
   }[];
   actions: {
     id: number;
@@ -55,9 +92,11 @@ export type ApiMeeting = {
     assignee: string | null;
     due: string | null;
     priority: ApiPriority;
+    status: ActionStatus;
     done: boolean;
     taskId: number | null;
     mineToFinish: boolean;
+    updates: ActionUpdate[];
   }[];
 };
 
@@ -87,6 +126,8 @@ export type MeetingMeta = {
 export type MeetingBody = {
   title: string;
   type: string;
+  client_code: string | null;
+  client_name: string | null;
   status: MeetingStatus;
   date: string;
   time: string | null;
@@ -110,6 +151,7 @@ export type MeetingBody = {
     duration: number;
     notes: string | null;
     minutes_notes: string | null;
+    decision: string | null;
   }[];
   action_items: {
     id: number | null;
@@ -118,7 +160,7 @@ export type MeetingBody = {
     assignee_user_id: number | null;
     due_date: string | null;
     priority: ApiPriority;
-    status: 'open' | 'done';
+    status: ActionStatus;
   }[];
 };
 
@@ -158,6 +200,13 @@ export const meetingsApi = baseApi
         query: () => 'meetings/meta',
         keepUnusedDataFor: 600,
       }),
+      // Client hospitals to tag a meeting with. Empty when the server has no
+      // portal link configured.
+      meetingClients: build.query<MeetingClient[], void>({
+        query: () => 'meetings/clients',
+        transformResponse: (r: { data: MeetingClient[] }) => r.data,
+        keepUnusedDataFor: 600,
+      }),
       saveMeeting: build.mutation<ApiMeeting, { id?: number; body: MeetingBody }>({
         query: ({ id, body }) => ({
           url: id ? `meetings/${id}` : 'meetings',
@@ -176,6 +225,12 @@ export const meetingsApi = baseApi
         transformResponse: one,
         invalidatesTags: (_r, _e, id) => changed(id),
       }),
+      // Sign off the minutes of a held meeting; completing it closes it afterwards.
+      approveMinutes: build.mutation<ApiMeeting, number>({
+        query: id => ({ url: `meetings/${id}/approve-minutes`, method: 'POST' }),
+        transformResponse: one,
+        invalidatesTags: (_r, _e, id) => ['Meetings', { type: 'Meeting', id }],
+      }),
       finishMeetingAction: build.mutation<ApiMeeting, number>({
         query: actionId => ({ url: `meetings/actions/${actionId}/done`, method: 'POST' }),
         transformResponse: one,
@@ -188,8 +243,10 @@ export const {
   useMeetingsInfiniteQuery,
   useMeetingQuery,
   useMeetingMetaQuery,
+  useMeetingClientsQuery,
   useSaveMeetingMutation,
   useDeleteMeetingMutation,
   useCompleteMeetingMutation,
+  useApproveMinutesMutation,
   useFinishMeetingActionMutation,
 } = meetingsApi;

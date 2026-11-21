@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { Check, Pencil, Trash2 } from 'lucide-react-native';
+import { Check, Pencil, Stamp, Trash2 } from 'lucide-react-native';
 import { AppText } from '../components/AppText';
 import { Button } from '../components/Button';
 import { Divider } from '../components/Card';
@@ -23,6 +23,7 @@ import {
 import { priorityLabel } from '../projects/model';
 import { errorMessage } from '../store';
 import {
+  useApproveMinutesMutation,
   useCompleteMeetingMutation,
   useDeleteMeetingMutation,
   useFinishMeetingActionMutation,
@@ -35,6 +36,13 @@ import { colors, s, vs } from '../theme';
 
 const FRESH = ['Meeting'] as const;
 
+const actionStatusLabel = {
+  open: 'Open',
+  progress: 'In progress',
+  done: 'Done',
+  dropped: 'Dropped',
+} as const;
+
 export function MeetingDetailScreen() {
   const nav = useNavigation<any>();
   const id: number = useRoute<any>().params?.id;
@@ -43,6 +51,7 @@ export function MeetingDetailScreen() {
   const [complete, completing] = useCompleteMeetingMutation();
   const [destroy, deleting] = useDeleteMeetingMutation();
   const [finish, finishing] = useFinishMeetingActionMutation();
+  const [approve, approving] = useApproveMinutesMutation();
   const confirm = useConfirm();
 
   if (!query.data) {
@@ -64,7 +73,8 @@ export function MeetingDetailScreen() {
   }
 
   const m = query.data;
-  const failure = completing.error ?? deleting.error ?? finishing.error;
+  const failure =
+    completing.error ?? deleting.error ?? finishing.error ?? approving.error;
 
   const remove = async () => {
     const yes = await confirm({
@@ -78,6 +88,17 @@ export function MeetingDetailScreen() {
         .unwrap()
         .then(() => nav.goBack())
         .catch(() => {});
+    }
+  };
+
+  const signOff = async () => {
+    const yes = await confirm({
+      title: 'Approve the minutes?',
+      text: 'The client sees them as approved. Editing the minutes again will need a fresh approval. Complete the meeting afterwards to close it.',
+      confirmLabel: 'Approve',
+    });
+    if (yes) {
+      approve(m.id);
     }
   };
 
@@ -124,6 +145,16 @@ export function MeetingDetailScreen() {
               style={styles.action}
               onPress={() => nav.navigate('MeetingForm', { id: m.id })}
             />
+            {m.mineToApprove ? (
+              <Button
+                label={approving.isLoading ? 'Saving…' : 'Approve minutes'}
+                variant="secondary"
+                iconLeft={Stamp}
+                style={styles.action}
+                disabled={approving.isLoading}
+                onPress={signOff}
+              />
+            ) : null}
             {m.mineToComplete ? (
               <Button
                 label={completing.isLoading ? 'Saving…' : 'Complete'}
@@ -152,6 +183,9 @@ export function MeetingDetailScreen() {
           {m.recurring ? (
             <Pill label={describe(m.recurring)} tone="teal" />
           ) : null}
+          {m.clientName ? (
+            <Pill label={`Client · ${m.clientName}`} tone="info" />
+          ) : null}
         </View>
         <AppText variant="heading" style={styles.title}>
           {m.title}
@@ -168,6 +202,20 @@ export function MeetingDetailScreen() {
         <InfoRow label="Context" value={m.context} />
         <InfoRow label="Quorum" value={m.quorum} />
         <InfoRow label="Recorded by" value={m.recordedBy} />
+        {m.clientName ? (
+          <InfoRow
+            label="Shared with"
+            value={`${m.clientName} (${m.clientCode}) sees this meeting on their Client Portal and can respond there.`}
+          />
+        ) : null}
+        {m.minutesApproved ? (
+          <InfoRow
+            label="Minutes"
+            value={`Approved by ${m.minutesApproved.by}${
+              m.minutesApproved.at ? ` · ${m.minutesApproved.at}` : ''
+            }`}
+          />
+        ) : null}
         {m.completedAt ? (
           <InfoRow label="Completed" value={m.completedAt} />
         ) : null}
@@ -185,6 +233,11 @@ export function MeetingDetailScreen() {
                   </AppText>
                 ) : null}
               </View>
+              {a.rsvp === 'yes' ? (
+                <Pill label="Attending" tone="good" />
+              ) : a.rsvp === 'no' ? (
+                <Pill label="Declined" tone="critical" />
+              ) : null}
               <Pill label={a.attendance} tone={attendanceTone[a.attendance]} />
             </View>
           ))
@@ -229,6 +282,24 @@ export function MeetingDetailScreen() {
                   Minutes: {a.minutesNotes}
                 </AppText>
               ) : null}
+              {a.decision ? (
+                <AppText
+                  variant="meta"
+                  color={colors.tealDeep}
+                  style={styles.line}
+                >
+                  Decision: {a.decision}
+                </AppText>
+              ) : null}
+              {a.responses.map(r => (
+                <View key={r.id} style={styles.clientNote}>
+                  <AppText variant="meta">{r.text}</AppText>
+                  <AppText variant="meta" color={colors.inkMuted}>
+                    {r.by}
+                    {r.at ? ` · ${r.at}` : ''} · from the Client Portal
+                  </AppText>
+                </View>
+              ))}
             </View>
           ))
         ) : (
@@ -263,8 +334,8 @@ export function MeetingDetailScreen() {
                   tone={priorityTone(priorityLabel(a.priority))}
                 />
                 <Pill
-                  label={a.done ? 'Done' : 'Open'}
-                  tone={a.done ? 'signed' : 'watch'}
+                  label={actionStatusLabel[a.status]}
+                  tone={a.done ? 'signed' : a.status === 'progress' ? 'medium' : 'watch'}
                 />
                 {a.taskId ? <Pill label="In My Tasks" tone="teal" /> : null}
               </View>
@@ -276,6 +347,21 @@ export function MeetingDetailScreen() {
                 {a.assignee || 'Not assigned'}
                 {a.due ? ` · due ${shortDate(a.due)}` : ''}
               </AppText>
+              {a.updates.map(u => (
+                <AppText
+                  key={u.id}
+                  variant="meta"
+                  color={colors.inkSoft}
+                  style={styles.line}
+                >
+                  {actionStatusLabel[u.status]}
+                  {u.note ? ` · ${u.note}` : ''}
+                  {u.newDue ? ` · due moved to ${shortDate(u.newDue)}` : ''}
+                  {` — ${u.by}`}
+                  {u.on ? `, ${shortDate(u.on)}` : ''}
+                  {u.client ? ' (Client Portal)' : ''}
+                </AppText>
+              ))}
               {a.mineToFinish ? (
                 <Button
                   label="Mark done"
@@ -347,4 +433,11 @@ const styles = StyleSheet.create({
   },
   personText: { flex: 1 },
   done: { alignSelf: 'flex-start', marginTop: vs(8) },
+  clientNote: {
+    marginTop: vs(8),
+    paddingLeft: s(10),
+    borderLeftWidth: 3,
+    borderLeftColor: colors.yellow,
+    gap: vs(2),
+  },
 });

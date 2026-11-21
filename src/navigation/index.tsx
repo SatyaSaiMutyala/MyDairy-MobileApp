@@ -52,6 +52,7 @@ import { loadSession } from '../store/persist';
 import { restored } from '../store/slices/sessionSlice';
 import { navigationRef } from '../push';
 import { usePush } from '../push/usePush';
+import { useReminderAlarms } from '../reminders/useReminderAlarms';
 import { useForceUpdate } from '../update/useForceUpdate';
 import { colors } from '../theme';
 import { TabBar } from './TabBar';
@@ -78,6 +79,7 @@ const renderTabBar = (props: React.ComponentProps<typeof TabBar>) => (
 // Mounted only while someone is signed in.
 function PushListener() {
   usePush();
+  useReminderAlarms();
   return null;
 }
 

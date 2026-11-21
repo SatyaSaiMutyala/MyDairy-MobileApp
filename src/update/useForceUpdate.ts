@@ -1,8 +1,6 @@
-import { useEffect, useState } from 'react';
 import { Linking, Platform } from 'react-native';
 import { ANDROID_PACKAGE_ID, APP_VERSION, PLAY_STORE_URL } from '../config/appVersion';
 import { useAppConfigQuery } from '../store/api/authApi';
-import { fetchPlayStoreVersion } from './playStoreVersion';
 
 // '1.10' is newer than '1.9': compare part by part as numbers.
 export function isNewer(candidate: string, current: string): boolean {
@@ -22,11 +20,13 @@ export function isNewer(candidate: string, current: string): boolean {
 /**
  * Tells whether this build is too old to keep using.
  *
- * The server's minimum version (GET app/config, re-read whenever the app
- * comes back to the foreground) decides on both platforms. On Android, when
- * the server sets no minimum, the version live on Google Play is used
- * instead. Debug builds are never blocked, and any failure lets the person
- * in: a wrong block costs more than a late update.
+ * Only the server decides (GET app/config, re-read whenever the app comes
+ * back to the foreground). The server reads the stores itself and makes a
+ * new version the minimum a day after it goes live, so a phone is never
+ * asked to update to a build Google has not yet given it. The app used to
+ * read the Play Store page directly; that is gone, it was the cause of the
+ * "update required" popup on freshly installed apps. Debug builds are never
+ * blocked, and any failure lets the person in.
  */
 export function useForceUpdate() {
   const config = useAppConfigQuery(undefined, { skip: __DEV__ });
@@ -36,31 +36,7 @@ export function useForceUpdate() {
       : config.data?.minVersion?.ios;
   const iosAppId = config.data?.iosAppId ?? null;
 
-  const [storeVersion, setStoreVersion] = useState<string | null>(null);
-
-  // Android fallback: ask Google Play once per answer from the server.
-  useEffect(() => {
-    if (__DEV__ || Platform.OS !== 'android' || !config.data || serverMin) {
-      return;
-    }
-    let live = true;
-    fetchPlayStoreVersion()
-      .then(latest => {
-        if (live && latest && isNewer(latest, APP_VERSION)) {
-          setStoreVersion(latest);
-        }
-      })
-      .catch(() => {});
-    return () => {
-      live = false;
-    };
-  }, [config.data, serverMin]);
-
-  const required = __DEV__
-    ? null
-    : serverMin && isNewer(serverMin, APP_VERSION)
-    ? serverMin
-    : storeVersion;
+  const required = !__DEV__ && serverMin && isNewer(serverMin, APP_VERSION) ? serverMin : null;
 
   const openStore = async () => {
     if (Platform.OS === 'android') {
